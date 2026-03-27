@@ -84,7 +84,7 @@ if ! mountpoint -q "$(dirname "$DEST")"; then
 fi
 
 # ---------- Sync ----------
-RSYNC_ARGS=(-a --delete --log-file="$LOG_FILE")
+RSYNC_ARGS=(-a --no-perms --no-owner --no-group --delete --log-file="$LOG_FILE")
 
 if [ "$DRY_RUN" -eq 1 ]; then
   RSYNC_ARGS+=(--dry-run)
