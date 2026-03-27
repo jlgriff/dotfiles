@@ -1,0 +1,8 @@
+# rclone pull every 3 h on the hour
+0 */3 * * * $HOME/.local/bin/rclone_pull.sh
+
+# rsync backup local every 3 h, offset 2h from rclone pull
+0 2-23/3 * * * $HOME/.local/bin/rsync_backup_local.sh
+
+# cleanup sync logs older than 30 days, daily at midnight
+0 0 * * * $HOME/.local/bin/cleanup_sync_logs.sh
