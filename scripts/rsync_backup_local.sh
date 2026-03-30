@@ -21,7 +21,7 @@ if [ -z "${USB_DRIVE_NAME:-}" ] || [ -z "${CLOUD_LOCAL_DIR:-}" ]; then
 fi
 
 SRC="$HOME/$CLOUD_LOCAL_DIR"
-DEST="/media/$USER/$USB_DRIVE_NAME/$CLOUD_LOCAL_DIR"
+DEST="/media/$(whoami)/$USB_DRIVE_NAME/$CLOUD_LOCAL_DIR"
 DRY_RUN=0
 
 LOG_DIR="$HOME/.local/share/sync/logs"
