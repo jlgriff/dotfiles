@@ -52,20 +52,35 @@ else
   RUN_MODE="cron"
 fi
 
+JOB_NAME="pull"
+ERROR_REPORT="$HOME/Desktop/sync_errors.csv"
+
 log()   { echo "$(date '+%Y-%m-%d %H:%M:%S') [$1] $2" | tee -a "$LOG_FILE"; }
 info()  { log INFO "$*"; }
 error() { log ERROR "$*" >&2; }
 
+report_error() {
+  if [ ! -f "$ERROR_REPORT" ]; then
+    printf 'Timestamp,Job,Mode,Error,Log\n' > "$ERROR_REPORT"
+  fi
+  printf '%s,%s,%s,"%s",%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$JOB_NAME" "$RUN_MODE" "$1" "$LOG_FILE" >> "$ERROR_REPORT"
+}
+
+fatal() {
+  error "$*"
+  report_error "$*"
+  exit 1
+}
+
 LOCKFILE="$HOME/.local/share/sync/.rclone_pull.lock"
 cleanup() { rm -f "$LOCKFILE"; }
-trap 'error "Unexpected error at line $LINENO"; cleanup' ERR
+trap 'error "Unexpected error at line $LINENO"; report_error "Unexpected error at line $LINENO"; cleanup' ERR
 trap cleanup EXIT INT TERM
 
 if [ -f "$LOCKFILE" ]; then
   OLD_PID=$(cat "$LOCKFILE")
   if kill -0 "$OLD_PID" 2>/dev/null; then
-    error "Another instance is running (PID $OLD_PID). Exiting."
-    exit 1
+    fatal "Another instance is running (PID $OLD_PID). Exiting."
   fi
   info "Removing stale lockfile (PID $OLD_PID no longer running)."
   rm -f "$LOCKFILE"
@@ -91,8 +106,7 @@ else
 fi
 
 if ! rclone sync "${RCLONE_ARGS[@]}"; then
-  error "FAILED: Sync failed. Check log at $LOG_FILE"
-  exit 1
+  fatal "FAILED: Sync failed. Check log at $LOG_FILE"
 fi
 
 info "DONE: Sync complete."

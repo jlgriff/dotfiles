@@ -4,8 +4,8 @@ Personal scripts, notes, and settings for this machine (Ubuntu 24.04, Wayland).
 
 ## scripts/
 
-- **rclone_pull.sh** — Syncs cloud remote → local directory. Reads `CLOUD_REMOTE` and `CLOUD_LOCAL_DIR` from `~/.dotfiles.env`. Supports `--dry-run`. Has locking and logging. Runs via cron.
-- **rsync_backup_local.sh** — Backs up local cloud directory → USB drive. Reads `CLOUD_LOCAL_DIR` and `USB_DRIVE_NAME` from `~/.dotfiles.env`. Supports `--dry-run`. Runs via cron.
+- **rclone_pull.sh** — Syncs cloud remote → local directory. Reads `CLOUD_REMOTE` and `CLOUD_LOCAL_DIR` from `~/.dotfiles.env`. Supports `--dry-run`. Has locking and logging. Logs errors to `~/Desktop/sync_errors.csv`. Runs via cron.
+- **rsync_backup_local.sh** — Backs up local cloud directory → USB drive. Reads `CLOUD_LOCAL_DIR` and `USB_DRIVE_NAME` from `~/.dotfiles.env`. Supports `--dry-run`. Logs errors to `~/Desktop/sync_errors.csv`. Runs via cron.
 - **update_sunshine_to_latest.sh** — Fetches the latest Sunshine release from GitHub, compares against installed version, downloads and installs if newer. Run manually.
 - **check_ri_update.sh** — Checks SourceForge for a newer Realism Invictus release, downloads (but does not install) the Full installer if one is found. Tracks installed version in `~/.ri_version`. Run manually.
 - **cleanup_sync_logs.sh** — Deletes rclone/rsync log files older than 30 days. Supports `--dry-run`. Runs daily via cron.
