@@ -9,6 +9,8 @@ Personal scripts, notes, and settings for this machine (Ubuntu 24.04, Wayland).
 - **update_sunshine_to_latest.sh** — Fetches the latest Sunshine release from GitHub, compares against installed version, downloads and installs if newer. Run manually.
 - **check_ri_update.sh** — Checks SourceForge for a newer Realism Invictus release, downloads (but does not install) the Full installer if one is found. Tracks installed version in `~/.ri_version`. Run manually.
 - **cleanup_sync_logs.sh** — Deletes rclone/rsync log files older than 30 days. Supports `--dry-run`. Runs daily via cron.
+- **amazon-order-extract/** — Rust CLI that extracts order details from saved Amazon order HTML files (standard + Fresh/Whole Foods layouts). Outputs JSON summary. Tracks processed files via `.processed`. Build with `cargo build --release`, binary symlinked from `~/.local/bin/`. Run manually.
+- **walmart-order-extract/** — Rust CLI that extracts order details from saved Walmart order HTML files. Same JSON output schema as amazon-order-extract. Build with `cargo build --release`, binary symlinked from `~/.local/bin/`. Run manually.
 
 ## notes/
 
@@ -26,5 +28,6 @@ Claude Code permissions (allowed/denied shell commands). Symlinked from `~/.clau
 ## Conventions
 
 - **NEVER commit sensitive, personal, or identifying information to this repo. It is public.** Use `$USER`/`$HOME` instead of hardcoded usernames, and put machine-specific values in `~/.dotfiles.env` (gitignored).
+- `~/.dotfiles.env` defines `DOTFILES_DIR` (path to this repo clone) along with cloud sync, backup, and git identity variables. Scripts and docs should reference `$DOTFILES_DIR` rather than hardcoding the repo path.
 - Scripts are symlinked from `~/.local/bin/` or `~/Documents/` into this repo.
 - **When adding or updating scripts/notes, update this file and README.md to keep the summaries and symlink instructions current.**

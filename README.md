@@ -11,6 +11,9 @@ Personal scripts, notes, and machine setup files.
 
 2. Create `~/.dotfiles.env` with your machine-specific config:
    ```bash
+   # Path to this dotfiles repo clone
+   DOTFILES_DIR="$HOME/git/dotfiles"
+
    # Cloud sync (rclone remote name, local folder, login username, and rclone backend type)
    CLOUD_REMOTE="Dropbox:"
    CLOUD_LOCAL_DIR="Dropbox"
@@ -56,16 +59,27 @@ Personal scripts, notes, and machine setup files.
 
 5. Symlink scripts into your PATH:
    ```bash
-   ln -sf ~/git/dotfiles/scripts/rclone_pull.sh ~/.local/bin/rclone_pull.sh
-   ln -sf ~/git/dotfiles/scripts/rsync_backup_local.sh ~/.local/bin/rsync_backup_local.sh
-   ln -sf ~/git/dotfiles/scripts/cleanup_sync_logs.sh ~/.local/bin/cleanup_sync_logs.sh
-   ln -sf ~/git/dotfiles/scripts/update_sunshine_to_latest.sh ~/.local/bin/update_sunshine_to_latest.sh
-   ln -sf ~/git/dotfiles/scripts/check_ri_update.sh ~/.local/bin/check_ri_update.sh
+   source ~/.dotfiles.env
+   ln -sf "$DOTFILES_DIR/scripts/rclone_pull.sh" ~/.local/bin/rclone_pull.sh
+   ln -sf "$DOTFILES_DIR/scripts/rsync_backup_local.sh" ~/.local/bin/rsync_backup_local.sh
+   ln -sf "$DOTFILES_DIR/scripts/cleanup_sync_logs.sh" ~/.local/bin/cleanup_sync_logs.sh
+   ln -sf "$DOTFILES_DIR/scripts/update_sunshine_to_latest.sh" ~/.local/bin/update_sunshine_to_latest.sh
+   ln -sf "$DOTFILES_DIR/scripts/check_ri_update.sh" ~/.local/bin/check_ri_update.sh
    ```
+
+6. Build and symlink Rust tools:
+   ```bash
+   source ~/.dotfiles.env
+   cd "$DOTFILES_DIR/scripts/amazon-order-extract" && cargo build --release
+   ln -sf "$DOTFILES_DIR/scripts/amazon-order-extract/target/release/amazon-order-extract" ~/.local/bin/amazon-order-extract
+   cd "$DOTFILES_DIR/scripts/walmart-order-extract" && cargo build --release
+   ln -sf "$DOTFILES_DIR/scripts/walmart-order-extract/target/release/walmart-order-extract" ~/.local/bin/walmart-order-extract
+   ```
+   Run `amazon-order-extract --help` or `walmart-order-extract --help` for usage and instructions on saving order HTML files.
 
 ## Structure
 
 ```
-scripts/     # Shell scripts (backup, updates, etc.)
+scripts/     # Shell scripts and CLI tools (backup, updates, etc.)
 notes/       # Setup guides and reference docs
 ```
