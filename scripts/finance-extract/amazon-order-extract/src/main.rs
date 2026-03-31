@@ -26,11 +26,11 @@ Saving order HTML files:
 struct Cli {
     /// Directory containing Amazon order HTML files to process.
     /// Each file should be a saved Amazon order details page.
-    /// Files starting with '.' and 'order_summary.json' are ignored.
+    /// Files starting with '.' and 'amazon_orders_summary.json' are ignored.
     #[arg(short, long, value_name = "DIR")]
     input_dir: PathBuf,
 
-    /// Directory to write 'order_summary.json' into.
+    /// Directory to write 'amazon_orders_summary.json' into.
     /// Defaults to the input directory if not specified.
     /// The '.processed' tracking file always stays in the input directory.
     #[arg(short, long, value_name = "DIR")]
@@ -328,7 +328,7 @@ fn main() {
     fs::create_dir_all(&output_dir).expect("Failed to create output directory");
 
     let processed_file = input_dir.join(".processed");
-    let output_file = output_dir.join("order_summary.json");
+    let output_file = output_dir.join("amazon_orders_summary.json");
 
     let mut processed = if cli.all {
         BTreeSet::new()
@@ -343,7 +343,7 @@ fn main() {
             let name = e.file_name().to_string_lossy().to_string();
             e.file_type().map(|ft| ft.is_file()).unwrap_or(false)
                 && !name.starts_with('.')
-                && name != "order_summary.json"
+                && name != "amazon_orders_summary.json"
         })
         .collect();
     entries.sort_by_key(|e| e.file_name());

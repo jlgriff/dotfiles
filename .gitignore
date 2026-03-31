@@ -1,3 +1,2 @@
 .dotfiles.env
-scripts/amazon-order-extract/target/
-scripts/walmart-order-extract/target/
+scripts/finance-extract/target/

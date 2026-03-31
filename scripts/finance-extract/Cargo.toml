@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "amazon-order-extract",
+    "walmart-order-extract",
+    "gnucash-account-extract",
+    "gnucash-transaction-extract",
+]
+resolver = "3"
