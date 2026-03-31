@@ -110,9 +110,9 @@ can generate `.qif` transaction files for import into GnuCash.
    gnucash-account-extract -f ~/Documents/transactions.gnucash -o ~/Downloads/accounts.json
    ```
 
-4. **Extract recent transactions** — Pull the most recent N transactions (`-n`)
-   as categorization precedent so the AI can see how similar purchases were
-   classified:
+4. **Extract recent transactions** — Pull transactions as categorization
+   precedent so the AI can see how similar purchases were classified. Exports
+   all transactions by default, or use `-n` to limit:
    ```bash
    gnucash-transaction-extract -f <gnucash-file> -n <count> -o <output-file>
    ```

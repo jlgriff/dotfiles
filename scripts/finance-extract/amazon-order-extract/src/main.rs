@@ -58,7 +58,9 @@ struct Order {
     shipping: String,
     tax: String,
     total: String,
+    discount: String,
     refund: String,
+    card_last4: String,
     source: String,
 }
 
@@ -145,6 +147,16 @@ fn parse_standard(doc: &Html, html: &str, _filename: &str) -> Option<Order> {
     let shipping = extract_charge_line(html, r"Shipping &(?:amp;)? Handling");
     let tax = extract_charge_line(html, r"Estimated tax to be collected");
 
+    // Discount (sum of all "Promotion Applied" lines)
+    let discount = extract_discount(html);
+
+    // Card last 4 digits — "ending in XXXX" in the payment method section
+    let card_last4 = Regex::new(r"ending in (\d{4})")
+        .unwrap()
+        .captures(html)
+        .map(|c| c[1].to_string())
+        .unwrap_or_default();
+
     // Refund
     let refund = extract_refund(html);
 
@@ -156,7 +168,9 @@ fn parse_standard(doc: &Html, html: &str, _filename: &str) -> Option<Order> {
         shipping,
         tax,
         total,
+        discount,
         refund,
+        card_last4,
         source: "amazon".to_string(),
     })
 }
@@ -180,6 +194,22 @@ fn extract_charge_line(html: &str, label_pattern: &str) -> String {
         .and_then(|re| re.captures(html))
         .map(|c| format!("${}", &c[1]))
         .unwrap_or_default()
+}
+
+fn extract_discount(html: &str) -> String {
+    let re = Regex::new(
+        r#"(?s)Promotion Applied:.*?</div>.*?<div[^>]*od-line-item-row-content[^>]*>.*?-\$([\d,]+\.\d{2})"#,
+    )
+    .unwrap();
+    let total: f64 = re
+        .captures_iter(html)
+        .filter_map(|c| c[1].replace(',', "").parse::<f64>().ok())
+        .sum();
+    if total > 0.0 {
+        format!("-${:.2}", total)
+    } else {
+        String::new()
+    }
 }
 
 fn extract_refund(html: &str) -> String {
@@ -261,7 +291,13 @@ fn parse_fresh(doc: &Html, html: &str, _filename: &str) -> Option<Order> {
         shipping: String::new(),
         tax,
         total,
+        discount: String::new(),
         refund: String::new(),
+        card_last4: Regex::new(r"ending in (\d{4})")
+            .unwrap()
+            .captures(html)
+            .map(|c| c[1].to_string())
+            .unwrap_or_default(),
         source: "amazon".to_string(),
     })
 }

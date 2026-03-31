@@ -56,7 +56,9 @@ struct Order {
     shipping: String,
     tax: String,
     total: String,
+    discount: String,
     refund: String,
+    card_last4: String,
     source: String,
 }
 
@@ -147,6 +149,13 @@ fn parse_walmart(html: &str) -> Option<Order> {
         String::new()
     };
 
+    // Discount / Savings — aria-label="Savings, $XX.XX"
+    let discount = Regex::new(r#"aria-label="Savings, \$([\d,.]+)""#)
+        .unwrap()
+        .captures(html)
+        .map(|c| format!("-${}", &c[1]))
+        .unwrap_or_default();
+
     // Total — class="...bill-order-total-payment..."...$XXX.XX
     let total = Regex::new(r"bill-order-total-payment.*?\$([\d,.]+)")
         .unwrap()
@@ -206,7 +215,13 @@ fn parse_walmart(html: &str) -> Option<Order> {
         shipping: String::new(),
         tax,
         total,
+        discount,
         refund,
+        card_last4: Regex::new(r"(?i)ending in (\d{4})")
+            .unwrap()
+            .captures(html)
+            .map(|c| c[1].to_string())
+            .unwrap_or_default(),
         source: "walmart".to_string(),
     })
 }

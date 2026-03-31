@@ -27,9 +27,9 @@ struct Cli {
     #[arg(short, long, value_name = "FILE")]
     output: Option<PathBuf>,
 
-    /// Number of most recent transactions to extract.
-    #[arg(short, long, default_value = "100", value_name = "COUNT")]
-    num: usize,
+    /// Number of most recent transactions to extract. Exports all if not specified.
+    #[arg(short, long, value_name = "COUNT")]
+    num: Option<usize>,
 }
 
 #[derive(Serialize)]
@@ -298,9 +298,11 @@ fn main() {
     let decoder = GzDecoder::new(BufReader::new(file));
     let (accounts, mut transactions) = parse_gnucash(decoder);
 
-    // Sort by date descending, take the most recent N
+    // Sort by date descending, take the most recent N (or all)
     transactions.sort_by(|a, b| b.date.cmp(&a.date));
-    transactions.truncate(cli.num);
+    if let Some(n) = cli.num {
+        transactions.truncate(n);
+    }
 
     // Convert to output format
     let output: Vec<Transaction> = transactions
