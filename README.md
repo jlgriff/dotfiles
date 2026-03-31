@@ -121,8 +121,11 @@ can generate `.qif` transaction files for import into GnuCash.
    gnucash-transaction-extract -f ~/Documents/transactions.gnucash -n 200 -o ~/Downloads/transactions.json
    ```
 
-5. **Feed to AI** — Provide the JSON files to an AI along with the credit card
-   statement to generate `.qif` transactions for import into GnuCash.
+5. **Feed to AI** — Provide the four JSON files to an AI along with
+   [`notes/CONTEXT_finance_extract.md`](notes/CONTEXT_finance_extract.md),
+   which contains the transaction output format, categorization rules, and
+   examples. The AI will use the accounts and recent transactions as precedent
+   to generate new GnuCash transactions from the order data.
 
 ## Structure
 

@@ -19,6 +19,7 @@ Personal scripts, notes, and settings for this machine (Ubuntu 24.04, Wayland).
 
 - **CONTEXT_civ4_realism_invictus_setup.md** — Full setup guide for Civ IV Beyond the Sword with Realism Invictus mod under Proton/Steam on Linux. Covers paths, installer quirks, protontricks dependencies, and desktop integration.
 - **CONTEXT_sunshine_setup.md** — Sunshine/Moonlight streaming setup on Wayland. Covers required groups, systemd service config with display env vars, VAAPI encoder, and troubleshooting.
+- **CONTEXT_finance_extract.md** — Guide for an AI to turn finance-extract JSON output into GnuCash transactions. Covers input files, deduplication, output format, categorization rules, and examples.
 
 ## crontab.txt
 
