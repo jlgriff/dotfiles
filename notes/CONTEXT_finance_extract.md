@@ -16,7 +16,10 @@ tools to generate new GnuCash transactions.
 ## Source of Truth
 
 The bank/credit card statement CSV is the definitive source of transactions.
-Each CSV line becomes one GnuCash transaction. The order summaries and past
+Each CSV line becomes one GnuCash transaction. Do not combine separate
+credit card charges even if they are related to the same vendor or event
+(e.g. a service fee and the main charge should be two transactions). The order
+summaries and past
 transactions are used to decorate those bank charges with Descriptions, Memos,
 and Account categorizations — they do not create transactions on their own.
 
@@ -70,11 +73,14 @@ Output each transaction as a markdown table. Each transaction is a separate tabl
 - Only use account paths that exist in `accounts.json`.
 - Determine the payment account (credit card or bank account) from
   `accounts.json` liabilities/assets. If the user specifies which card was
-  used, use that. Otherwise, check `transactions.json` for the card most
-  commonly associated with the merchant.
-- **When unsure about which expense account an item belongs to, use
-  `Imbalance-USD`.** A wrong guess is harder to catch than an explicit
-  Imbalance entry. The user will correct these manually.
+  used, use that. Otherwise, match a few charges against `transactions.json`
+  early to identify which card the CSV export belongs to, then use that card
+  consistently for all entries.
+- **When unsure about which expense account an item belongs to, batch
+  ambiguous charges into a single question to the user before generating
+  the output** rather than defaulting everything to `Imbalance-USD`. A wrong
+  guess is harder to catch than an explicit Imbalance entry. The user will
+  correct these manually.
 
 ### Description
 

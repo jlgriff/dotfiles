@@ -56,5 +56,6 @@
       "Edit(*)"
     ]
   },
-  "autoUpdatesChannel": "stable"
+  "autoUpdatesChannel": "stable",
+  "effortLevel": "max"
 }
