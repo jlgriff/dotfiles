@@ -48,10 +48,12 @@ Output each transaction as a markdown table. Each transaction is a separate tabl
 
 **Structure:**
 
-| Date | Description | Account | Amount | Memo |
-|------|-------------|---------|--------|------|
-| _post date_ | _vendor_ | _account path_ | _signed $_ | _item description_ |
-| | | _account path_ | _signed $_ | _item description_ |
+Column order matches GnuCash's register: Date, Description, Memo, Account, Amount.
+
+| Date | Description | Memo | Account | Amount |
+|------|-------------|------|---------|--------|
+| _post date_ | _vendor_ | _item description_ | _account path_ | _signed $_ |
+| | | _item description_ | _account path_ | _signed $_ |
 | | | ... | ... | ... |
 
 **Rules:**
@@ -162,42 +164,42 @@ All account paths below are illustrative. Use only paths from `accounts.json`.
 
 Simple single-item order:
 
-| Date | Description | Account | Amount | Memo |
-|------|-------------|---------|--------|------|
-| 2026-03-23 | Amazon | Expenses:Books | $15.99 | Book title |
-|  |  | Expenses:Taxes:Sales Tax | $1.28 |  |
-|  |  | Liabilities:Credit Card | -$17.27 |  |
+| Date | Description | Memo | Account | Amount |
+|------|-------------|------|---------|--------|
+| 2026-03-23 | Amazon | Book title | Expenses:Books | $15.99 |
+|  |  |  | Expenses:Taxes:Sales Tax | $1.28 |
+|  |  |  | Liabilities:Credit Card | -$17.27 |
 
 Multi-item order with items in different expense accounts:
 
-| Date | Description | Account | Amount | Memo |
-|------|-------------|---------|--------|------|
-| 2026-02-18 | Walmart | Expenses:Household Supplies | $41.41 | Pest traps, shower caddy |
-|  |  | Expenses:Clothing | $34.99 | Winter boots |
-|  |  | Expenses:Taxes:Sales Tax | $6.11 |  |
-|  |  | Liabilities:Credit Card | -$82.51 |  |
+| Date | Description | Memo | Account | Amount |
+|------|-------------|------|---------|--------|
+| 2026-02-18 | Walmart | Pest traps, shower caddy | Expenses:Household Supplies | $41.41 |
+|  |  | Winter boots | Expenses:Clothing | $34.99 |
+|  |  |  | Expenses:Taxes:Sales Tax | $6.11 |
+|  |  |  | Liabilities:Credit Card | -$82.51 |
 
 Multi-item order where all items go to the same account (tax merged in):
 
-| Date | Description | Account | Amount | Memo |
-|------|-------------|---------|--------|------|
-| 2026-03-18 | Amazon Fresh | Expenses:Food:Groceries Delivered | $158.57 | Eggs, milk, bread, bananas, cereal, yogurt |
-|  |  | Liabilities:Credit Card | -$158.57 |  |
+| Date | Description | Memo | Account | Amount |
+|------|-------------|------|---------|--------|
+| 2026-03-18 | Amazon Fresh | Eggs, milk, bread, bananas, cereal, yogurt | Expenses:Food:Groceries Delivered | $158.57 |
+|  |  |  | Liabilities:Credit Card | -$158.57 |
 
 Refund (always a separate transaction, signs reversed):
 
-| Date | Description | Account | Amount | Memo |
-|------|-------------|---------|--------|------|
-| 2026-03-14 | Amazon | Liabilities:Credit Card | $57.22 |  |
-|  |  | Expenses:Clothing | -$52.98 | Refund: Jeans |
-|  |  | Expenses:Taxes:Sales Tax | -$4.24 |  |
+| Date | Description | Memo | Account | Amount |
+|------|-------------|------|---------|--------|
+| 2026-03-14 | Amazon |  | Liabilities:Credit Card | $57.22 |
+|  |  | Refund: Jeans | Expenses:Clothing | -$52.98 |
+|  |  |  | Expenses:Taxes:Sales Tax | -$4.24 |
 
 Walmart split shipment (charge cannot be matched to specific items):
 
-| Date | Description | Account | Amount | Memo |
-|------|-------------|---------|--------|------|
-| 2026-03-24 | Walmart | Imbalance-USD | $109.33 | Order XXXXXXXX partial shipment |
-|  |  | Liabilities:Credit Card | -$109.33 |  |
+| Date | Description | Memo | Account | Amount |
+|------|-------------|------|---------|--------|
+| 2026-03-24 | Walmart | Order XXXXXXXX partial shipment | Imbalance-USD | $109.33 |
+|  |  |  | Liabilities:Credit Card | -$109.33 |
 
 When presenting multiple transactions, separate each table with a blank line.
 Group by date.
