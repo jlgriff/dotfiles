@@ -3,6 +3,14 @@
 Use this guide along with the four JSON files produced by the finance-extract
 tools to generate new GnuCash transactions.
 
+## Re-Extracting Old Orders
+
+The order extractors track ingested files in a `.processed` file inside the
+input directory. Never delete `.processed` — the extractor's existing summary
+JSON already contains previously-processed orders (new runs merge into it),
+and if you do need a full rebuild, pass `--all` to the extractor (it
+re-processes every file and rewrites `.processed` automatically).
+
 ## Input Files
 
 1. **`amazon_orders_summary.json`** — Amazon order data (order ID, date, items
@@ -31,6 +39,10 @@ amount formatting — the CSV may omit trailing zeros (e.g. `$35.3` vs `$35.30`)
 Skip any charge that appears to already be entered.
 
 ## Transaction Output Format
+
+Write the output to a file at `~/Downloads/new_transactions_<YYYY-MM-DD>.md`,
+where the date is today's date (the date the file is generated). Do not print
+the tables inline in chat — the file is the deliverable.
 
 Output each transaction as a markdown table. Each transaction is a separate table.
 
