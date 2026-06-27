@@ -10,8 +10,8 @@ Personal scripts, notes, and settings for this machine (Ubuntu 24.04, Wayland).
 - **check_ri_update.sh** — Checks SourceForge for a newer Realism Invictus release, downloads (but does not install) the Full installer if one is found. Tracks installed version in `~/.ri_version`. Run manually.
 - **cleanup_sync_logs.sh** — Deletes rclone/rsync log files older than 30 days. Supports `--dry-run`. Runs daily via cron.
 - **finance-extract/** — Cargo workspace containing Rust CLIs for extracting financial data into JSON for AI processing. One `cargo build --release` builds all tools. Binaries symlinked from `~/.local/bin/`. Run manually.
-  - **amazon-order-extract** — Extracts order details from saved Amazon order HTML files (standard + Fresh/Whole Foods layouts). Tracks processed files via `.processed`.
-  - **walmart-order-extract** — Extracts order details from saved Walmart order HTML files. Same JSON output schema as amazon-order-extract.
+  - **amazon-order-extract** — Extracts order details from saved Amazon order HTML files (standard + Fresh/Whole Foods layouts). Tracks processed files via `.processed`. Records per-item `quantity`; HTML saves omit quantities for multi-item orders (JS-rendered), so it warns when items don't reconcile to the subtotal and recovers quantity only for single-item orders.
+  - **walmart-order-extract** — Extracts order details from saved Walmart order **PDF** invoices (preferred — include per-line quantities) or legacy HTML files. Same JSON output schema as amazon-order-extract. PDF parsing requires `pdftotext` (poppler-utils).
   - **gnucash-account-extract** — Extracts account paths from a GnuCash file (gzip-compressed XML). Outputs JSON grouped by category. Supports filtering by category.
   - **gnucash-transaction-extract** — Extracts the most recent N transactions from a GnuCash file as JSON (date, description, splits with account/amount/memo). Useful as categorization precedent for AI.
 

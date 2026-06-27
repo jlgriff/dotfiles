@@ -46,7 +46,24 @@ struct Cli {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Item {
     name: String,
+    /// Line-item total when known, otherwise the per-unit price (see parsing
+    /// notes). Multiply by `quantity` to get the line total for standard orders.
     price: String,
+    /// Number of units on this line ("1" when unknown). Saved Amazon "HTML
+    /// Only" pages render quantity via JavaScript, so it is only recoverable
+    /// for single-item orders (quantity = subtotal / unit price).
+    #[serde(default = "one")]
+    quantity: String,
+}
+
+fn one() -> String {
+    "1".to_string()
+}
+
+/// Parse a "$1,234.56" money string into a float.
+fn money_to_f64(s: &str) -> Option<f64> {
+    let cleaned: String = s.chars().filter(|c| c.is_ascii_digit() || *c == '.').collect();
+    cleaned.parse().ok()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -136,7 +153,11 @@ fn parse_standard(doc: &Html, html: &str, _filename: &str) -> Option<Order> {
             String::new()
         };
 
-        items.push(Item { name, price });
+        items.push(Item {
+            name,
+            price,
+            quantity: "1".to_string(),
+        });
     }
 
     // Grand Total
@@ -146,6 +167,23 @@ fn parse_standard(doc: &Html, html: &str, _filename: &str) -> Option<Order> {
     let subtotal = extract_charge_line(html, r"Item\(s\) Subtotal");
     let shipping = extract_charge_line(html, r"Shipping &(?:amp;)? Handling");
     let tax = extract_charge_line(html, r"Estimated tax to be collected");
+
+    // Saved "HTML Only" pages never include the per-line quantity (it is filled
+    // in by JavaScript). For a single-item order the line total equals the
+    // subtotal, so we can recover the quantity and store the line total.
+    if items.len() == 1 {
+        if let (Some(unit), Some(sub)) =
+            (money_to_f64(&items[0].price), money_to_f64(&subtotal))
+        {
+            if unit > 0.0 {
+                let qty = (sub / unit).round();
+                if qty >= 1.0 && (qty * unit - sub).abs() < 0.01 {
+                    items[0].quantity = format!("{}", qty as u64);
+                    items[0].price = format!("${sub:.2}");
+                }
+            }
+        }
+    }
 
     // Discount (sum of all "Promotion Applied" lines)
     let discount = extract_discount(html);
@@ -263,7 +301,11 @@ fn parse_fresh(doc: &Html, html: &str, _filename: &str) -> Option<Order> {
                 .unwrap_or_default();
 
             if !name.is_empty() {
-                items.push(Item { name, price });
+                items.push(Item {
+                    name,
+                    price,
+                    quantity: "1".to_string(),
+                });
             }
         }
     }
@@ -416,6 +458,23 @@ fn main() {
                         "  OK    {}  {}  {}  ({} items)",
                         fname, order.date, order.total, item_count
                     );
+                    // Multi-item orders can't recover per-line quantities from a
+                    // saved HTML page; warn when the items don't reconcile so the
+                    // gap is visible rather than silently wrong.
+                    if item_count > 1 {
+                        if let Some(sub) = money_to_f64(&order.subtotal) {
+                            let sum: f64 = order
+                                .items
+                                .iter()
+                                .filter_map(|it| money_to_f64(&it.price))
+                                .sum();
+                            if (sum - sub).abs() >= 0.02 {
+                                println!(
+                                    "  WARN  {fname}  item prices sum to ${sum:.2} but subtotal is ${sub:.2} (hidden quantities not in saved HTML)"
+                                );
+                            }
+                        }
+                    }
                     seen_order_ids.insert(order.order_id.clone());
                     new_orders.push(order);
                 }

@@ -14,12 +14,28 @@ re-processes every file and rewrites `.processed` automatically).
 ## Input Files
 
 1. **`amazon_orders_summary.json`** — Amazon order data (order ID, date, items
-   with names/prices, subtotal, tax, shipping, total, refund).
+   with names/prices/quantities, subtotal, tax, shipping, total, refund).
 2. **`walmart_orders_summary.json`** — Walmart order data (same schema as Amazon).
 3. **`accounts.json`** — All GnuCash account paths grouped by category (assets,
    expenses, income, liabilities, equity). Only use account paths from this file.
 4. **`transactions.json`** — Recent GnuCash transactions with date, description,
    and splits (account, amount, memo). Use these as categorization precedent.
+
+## Item Quantities and Prices
+
+Each item has a `quantity` field. Interpret `price` as follows:
+
+- **Walmart** (parsed from PDF invoices) and **single-item Amazon orders** —
+  `price` is the **line total** for that quantity. Item prices sum to the
+  subtotal directly; do not multiply by `quantity` (it is informational).
+- **Multi-item Amazon orders** — saved Amazon "HTML Only" pages do not contain
+  per-line quantities (the page fills them in with JavaScript). For these,
+  `quantity` is always `1` and `price` is the **per-unit** price. If the items
+  do not sum to the subtotal, one or more lines had a hidden quantity > 1 and
+  the extractor cannot tell which. The extractor prints a `WARN` line in this
+  case. When you cannot reconcile the items to the subtotal, categorize the
+  items you can and place the unexplained remainder in `Imbalance-USD` (the user
+  reconciles in GnuCash) — do not guess quantities.
 
 ## Source of Truth
 

@@ -1,12 +1,5 @@
 {
   "permissions": {
-    "deny": [
-      "Bash(git commit *)",
-      "Bash(git push *)",
-      "Bash(git rebase -i *)",
-      "Bash(rm -rf / *)",
-      "Bash(sudo *)"
-    ],
     "allow": [
       "Bash(ls *)",
       "Bash(tree *)",
@@ -54,8 +47,15 @@
       "Read(*)",
       "Write(*)",
       "Edit(*)"
+    ],
+    "deny": [
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git rebase -i *)",
+      "Bash(rm -rf / *)",
+      "Bash(sudo *)"
     ]
   },
   "autoUpdatesChannel": "stable",
-  "effortLevel": "max"
+  "theme": "dark"
 }

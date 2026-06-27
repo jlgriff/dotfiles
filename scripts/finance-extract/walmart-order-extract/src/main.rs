@@ -8,22 +8,28 @@ use std::process;
 
 #[derive(Parser)]
 #[command(
-    about = "Extract order details from saved Walmart order HTML files.",
-    long_about = "Extract order details from saved Walmart order HTML files.\n\n\
+    about = "Extract order details from saved Walmart order PDF or HTML files.",
+    long_about = "Extract order details from saved Walmart order PDF or HTML files.\n\n\
         Produces a JSON summary with the same structure as amazon-order-extract.\n\
         Tracks which files have already been processed in a .processed file so\n\
-        subsequent runs only handle new files.",
+        subsequent runs only handle new files.\n\n\
+        PDF invoices (printed from the order details page) are the preferred\n\
+        format — they include per-line quantities. Parsing PDFs requires the\n\
+        'pdftotext' tool from poppler-utils.",
     after_help = "\
-Saving order HTML files:
+Saving order invoices (recommended — PDF):
   1. Go to https://www.walmart.com/orders
-  2. Click an order to open its details page
-  3. Save the page as HTML (Ctrl+S or Cmd+S), selecting \"Webpage, HTML Only\"
-  4. Save/move the file into your input directory (e.g. ~/Downloads/Orders/Walmart)
-  5. Repeat for each order, then run this tool with -i <input-dir>"
+  2. Click an order, then open its invoice/receipt view
+  3. Print to PDF (Ctrl+P -> Save as PDF) into your input directory
+     (e.g. ~/Downloads/Orders/Walmart)
+  4. Repeat for each order, then run this tool with -i <input-dir>
+
+HTML saves (legacy) are also accepted, but lack quantities.
+Requires poppler-utils (pdftotext) for PDF parsing."
 )]
 struct Cli {
-    /// Directory containing Walmart order HTML files to process.
-    /// Each file should be a saved Walmart order details page.
+    /// Directory containing Walmart order PDF or HTML files to process.
+    /// Each file should be a saved Walmart order invoice (PDF) or details page (HTML).
     /// Files starting with '.', directories, and 'walmart_orders_summary.json' are ignored.
     #[arg(short, long, value_name = "DIR")]
     input_dir: PathBuf,
@@ -44,7 +50,16 @@ struct Cli {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Item {
     name: String,
+    /// Line-item total (the amount that contributes to the subtotal), not the
+    /// per-unit price. For a line with quantity > 1 this is the combined price.
     price: String,
+    /// Number of units on this line ("1" when unknown).
+    #[serde(default = "one")]
+    quantity: String,
+}
+
+fn one() -> String {
+    "1".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -116,6 +131,7 @@ fn parse_walmart(html: &str) -> Option<Order> {
         items.push(Item {
             name: name.clone(),
             price,
+            quantity: "1".to_string(),
         });
     }
 
@@ -227,6 +243,117 @@ fn parse_walmart(html: &str) -> Option<Order> {
 }
 
 // ---------------------------------------------------------------------------
+// Walmart invoice PDF parsing
+// ---------------------------------------------------------------------------
+
+/// Run `pdftotext` (poppler-utils) and return its stdout. `layout` selects the
+/// `-layout` mode, which keeps each footer label on the same line as its value;
+/// the default (raw) mode lays items out one field per line.
+fn pdftotext(path: &std::path::Path, layout: bool) -> Option<String> {
+    let mut cmd = std::process::Command::new("pdftotext");
+    if layout {
+        cmd.arg("-layout");
+    }
+    let output = cmd.arg(path).arg("-").output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+/// Parse a saved Walmart order invoice PDF. `raw` is the default pdftotext
+/// dump (used for the item list), `layout` is the `-layout` dump (used for the
+/// footer totals). The price shown on a PDF line is the line total for that
+/// quantity, so `price` is stored as-is and `quantity` from the "Qty N" marker.
+fn parse_walmart_pdf(raw: &str, layout: &str) -> Option<Order> {
+    let order_id = Regex::new(r"Order#\s+([\d-]+)")
+        .unwrap()
+        .captures(raw)
+        .map(|c| c[1].trim().to_string())?;
+
+    let date = Regex::new(r"(\w+ \d{1,2}, \d{4})\s+order")
+        .unwrap()
+        .captures(raw)
+        .map(|c| c[1].trim().to_string())
+        .unwrap_or_default();
+
+    // Items: in raw mode each item is a block of one-or-more consecutive
+    // name lines, a blank line, "Qty N", a blank line, then "$price". Scan
+    // imperatively so header/footer text (which never sits directly above a
+    // "Qty N" line) can't bleed into a product name.
+    let lines: Vec<&str> = raw.lines().map(|l| l.trim_end()).collect();
+    let qty_re = Regex::new(r"^Qty\s+(\d+)$").unwrap();
+    let price_re = Regex::new(r"^\$([\d,]+\.\d{2})$").unwrap();
+    let mut items = Vec::new();
+    for (i, line) in lines.iter().enumerate() {
+        let qty = match qty_re.captures(line.trim()) {
+            Some(c) => c[1].to_string(),
+            None => continue,
+        };
+        // Price: first "$X.XX"-only line below the marker.
+        let price = lines[i + 1..]
+            .iter()
+            .take(4)
+            .find_map(|l| price_re.captures(l.trim()).map(|c| format!("${}", &c[1])));
+        let price = match price {
+            Some(p) => p,
+            None => continue,
+        };
+        // Name: skip the blank line(s) above, then gather consecutive non-blank
+        // lines (the wrapped product title) and join them top-to-bottom.
+        let mut name_lines: Vec<String> = Vec::new();
+        let mut j = i;
+        while j > 0 && lines[j - 1].trim().is_empty() {
+            j -= 1;
+        }
+        while j > 0 && !lines[j - 1].trim().is_empty() {
+            name_lines.push(lines[j - 1].trim().to_string());
+            j -= 1;
+        }
+        name_lines.reverse();
+        let name = html_decode(&name_lines.join(" "));
+        if !name.is_empty() {
+            items.push(Item {
+                name,
+                price,
+                quantity: qty,
+            });
+        }
+    }
+
+    // Footer totals come from the -layout dump, where each label shares a line
+    // with its value. "^\s*Total" can't match the "Subtotal" line.
+    let money = |pat: &str| -> Option<f64> {
+        Regex::new(pat)
+            .ok()?
+            .captures(layout)
+            .and_then(|c| c[1].replace(',', "").parse::<f64>().ok())
+    };
+    let fmt = |v: Option<f64>| v.map(|n| format!("${n:.2}")).unwrap_or_default();
+
+    let subtotal = fmt(money(r"(?m)^\s*Subtotal\s+\$([\d,]+\.\d{2})"));
+    let tax = fmt(money(r"(?m)^\s*Tax\s+\$([\d,]+\.\d{2})"));
+    let total = fmt(money(r"(?m)^\s*Total\s+\$([\d,]+\.\d{2})"));
+    let discount = money(r"(?m)^\s*Savings\s+-?\$([\d,]+\.\d{2})")
+        .map(|n| format!("-${n:.2}"))
+        .unwrap_or_default();
+
+    Some(Order {
+        order_id,
+        date,
+        items,
+        subtotal,
+        shipping: String::new(),
+        tax,
+        total,
+        discount,
+        refund: String::new(),
+        card_last4: String::new(),
+        source: "walmart".to_string(),
+    })
+}
+
+// ---------------------------------------------------------------------------
 // Processed-file tracking
 // ---------------------------------------------------------------------------
 
@@ -306,16 +433,38 @@ fn main() {
             continue;
         }
 
-        let html = match fs::read_to_string(entry.path()) {
-            Ok(h) => h,
-            Err(e) => {
-                eprintln!("  ERR   {fname} ({e})");
-                errors.push(fname);
+        let path = entry.path();
+        let is_pdf = path
+            .extension()
+            .map(|e| e.eq_ignore_ascii_case("pdf"))
+            .unwrap_or(false);
+
+        let parsed = if is_pdf {
+            match (pdftotext(&path, false), pdftotext(&path, true)) {
+                (Some(raw), Some(layout)) => parse_walmart_pdf(&raw, &layout),
+                _ => {
+                    eprintln!("  ERR   {fname} (pdftotext failed — is poppler-utils installed?)");
+                    errors.push(fname);
+                    continue;
+                }
+            }
+        } else {
+            let html = match fs::read_to_string(&path) {
+                Ok(h) => h,
+                Err(e) => {
+                    eprintln!("  ERR   {fname} ({e})");
+                    errors.push(fname);
+                    continue;
+                }
+            };
+            if html.trim().is_empty() {
+                println!("  SKIP  {fname} (empty file)");
                 continue;
             }
+            parse_walmart(&html)
         };
 
-        match parse_walmart(&html) {
+        match parsed {
             Some(order) => {
                 if seen_order_ids.contains(&order.order_id) {
                     println!("  DUP   {fname}  (duplicate of {})", order.order_id);

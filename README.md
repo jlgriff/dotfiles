@@ -83,21 +83,25 @@ Personal scripts, notes, and machine setup files.
 The tools in `scripts/finance-extract/` prepare financial data as JSON so an AI
 can generate `.qif` transaction files for import into GnuCash.
 
-1. **Save order HTML pages** — For each Amazon or Walmart order, open the order
-   details page in a browser, save as "Webpage, HTML Only", and place the files
-   into a directory per retailer (e.g. `~/Downloads/Orders/Amazon/`).
+1. **Save order pages** — For each order, save it into a directory per retailer
+   (e.g. `~/Downloads/Orders/Amazon/`):
+   - **Amazon** — open the order details page and save as "Webpage, HTML Only".
+   - **Walmart** — open the order's invoice/receipt view and print to PDF
+     (preferred — PDFs include per-line quantities). Saved HTML is still
+     accepted but lacks quantities. PDF parsing requires `pdftotext`
+     (`sudo apt install poppler-utils`).
 
 2. **Extract order data** — Point each extractor at the input directory (`-i`)
    and optionally specify an output directory (`-o`). Each tool parses item
-   names, prices, totals, tax, and refunds from the saved HTML into JSON:
+   names, prices, quantities, totals, tax, and refunds into JSON:
    ```bash
    amazon-order-extract -i <amazon-html-dir> -o <output-dir>
    walmart-order-extract -i <walmart-html-dir> -o <output-dir>
    ```
    Example:
    ```bash
-   amazon-order-extract -i ~/Downloads/Orders/Amazon -o ~/Downloads
-   walmart-order-extract -i ~/Downloads/Orders/Walmart -o ~/Downloads
+   amazon-order-extract -i ~/Downloads/Orders/Amazon -o ~/Downloads   # HTML
+   walmart-order-extract -i ~/Downloads/Orders/Walmart -o ~/Downloads  # PDF or HTML
    ```
 
 3. **Extract GnuCash accounts** — Pull the current chart of accounts from
