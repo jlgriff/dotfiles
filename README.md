@@ -67,6 +67,7 @@ Personal scripts, notes, and machine setup files.
    ln -sf "$DOTFILES_DIR/scripts/cleanup_sync_logs.sh" ~/.local/bin/cleanup_sync_logs.sh
    ln -sf "$DOTFILES_DIR/scripts/update_sunshine_to_latest.sh" ~/.local/bin/update_sunshine_to_latest.sh
    ln -sf "$DOTFILES_DIR/scripts/check_ri_update.sh" ~/.local/bin/check_ri_update.sh
+   ln -sf "$DOTFILES_DIR/scripts/setup_caveman_skill.sh" ~/.local/bin/setup_caveman_skill.sh
    ```
 
 6. Build and symlink Rust tools (requires [Rust](https://rustup.rs/)):
@@ -77,6 +78,13 @@ Personal scripts, notes, and machine setup files.
    done
    ```
    Run any tool with `--help` for usage details (e.g. `amazon-order-extract --help`).
+
+7. Install the caveman Claude Code skill (optional):
+   ```bash
+   setup_caveman_skill.sh   # writes ~/.claude/skills/caveman/SKILL.md
+   ```
+   Then activate it in Claude Code with `/caveman` (or `/caveman lite|full|ultra`).
+   Turn it off by saying "normal mode".
 
 ## Finance Extract Workflow
 
