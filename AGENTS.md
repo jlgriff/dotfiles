@@ -31,6 +31,14 @@ Cron schedule for automated scripts. Not auto-applied — load with `crontab cro
 
 Claude Code permissions (allowed/denied shell commands). Symlinked from `~/.claude/settings.json`.
 
+## zshrc
+
+Zsh configuration. Symlinked from `~/.zshrc`. Initializes the Starship prompt, enables Tab completion and prefix history search, persists shell history, adds `~/.local/bin` and `~/.pulumi/bin` to `PATH`, and sources `~/.dotfiles.env`. Replaces an earlier oh-my-zsh setup — the history settings are here because oh-my-zsh used to supply them.
+
+## starship.toml
+
+Starship prompt configuration. Symlinked from `~/.config/starship.toml`. Starship is not packaged in apt; install it with the official script from `https://starship.rs/install.sh` (pass `-b ~/.local/bin` to avoid needing sudo).
+
 ## Conventions
 
 - **NEVER commit sensitive, personal, or identifying information to this repo. It is public.** Use `$USER`/`$HOME` instead of hardcoded usernames, and put machine-specific values in `~/.dotfiles.env` (gitignored).
