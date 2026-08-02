@@ -92,6 +92,9 @@ mkdir -p "$LOCAL_DIR"
 
 RCLONE_ARGS=(
   "$REMOTE_DIR" "$LOCAL_DIR"
+  --tpslimit 4
+  --transfers 2
+  --checkers 4
   --log-file="$LOG_FILE"
   --log-level NOTICE
   --stats 1m

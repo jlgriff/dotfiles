@@ -60,6 +60,13 @@ Write the output to a file at `~/Downloads/new_transactions_<YYYY-MM-DD>.md`,
 where the date is today's date (the date the file is generated). Do not print
 the tables inline in chat — the file is the deliverable.
 
+The file contains **only** the transaction tables — optionally preceded by a
+short flag block at the very top for issues still needing the user's input (see
+Flagging Issues). Never add a "Notes", "Resolved Questions", or summary section:
+once a question is answered, fold the answer into that transaction's Memo and
+Account and delete the flag. A single introductory line naming the source is
+fine; anything longer belongs in chat, not the file.
+
 Output each transaction as a markdown table. Each transaction is a separate table.
 
 **Structure:**
@@ -167,6 +174,9 @@ If the CSV contains charges that look anomalous, flag them at the top of the
 output rather than embedding notes in memo fields. Examples:
 - Duplicate charges (same merchant, same amount, same date appearing twice)
 - Unexpected double billing from a merchant
+
+Flags are temporary. Once the user resolves an item, update its row and remove
+the flag; the delivered file must not retain a resolved-questions section.
 
 ## Existing Imbalance Corrections
 
