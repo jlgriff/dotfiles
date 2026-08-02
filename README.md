@@ -60,8 +60,11 @@ Personal scripts, notes, and machine setup files.
    git config --global user.email "$GIT_USER_EMAIL"
    ```
 
-5. Symlink scripts into your PATH:
+5. Symlink shell configuration and scripts:
    ```bash
+   mkdir -p ~/.config ~/.local/bin
+   ln -sf "$DOTFILES_DIR/zshrc" ~/.zshrc
+   ln -sf "$DOTFILES_DIR/starship.toml" ~/.config/starship.toml
    ln -sf "$DOTFILES_DIR/scripts/rclone_pull.sh" ~/.local/bin/rclone_pull.sh
    ln -sf "$DOTFILES_DIR/scripts/rsync_backup_local.sh" ~/.local/bin/rsync_backup_local.sh
    ln -sf "$DOTFILES_DIR/scripts/cleanup_sync_logs.sh" ~/.local/bin/cleanup_sync_logs.sh
@@ -160,6 +163,8 @@ can generate `.qif` transaction files for import into GnuCash.
 ```
 scripts/                # Shell scripts (backup, updates, etc.)
   finance-extract/      # Cargo workspace — Rust CLIs for financial data extraction
+starship.toml           # Starship prompt configuration (symlinked from ~/.config/starship.toml)
+zshrc                   # Zsh configuration (symlinked from ~/.zshrc)
 crontab.txt             # Cron schedule for automated scripts
 claude-settings.json    # Claude Code permissions (symlinked from ~/.claude/settings.json)
 notes/                  # Setup guides and reference docs
