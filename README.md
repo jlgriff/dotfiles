@@ -82,28 +82,8 @@ Personal scripts, notes, and machine setup files.
    ```
    Run any tool with `--help` for usage details (e.g. `amazon-order-extract --help`).
 
-7. Install the caveman skill for Claude and ChatGPT (optional):
-   ```bash
-   setup_caveman_skill.sh --dry-run   # preview
-   setup_caveman_skill.sh
-   ```
-   Installs to each agent found on the machine, skipping the rest:
-
-   | Target | Destination | Activate with |
-   |---|---|---|
-   | Claude Code | `~/.claude/skills/caveman/SKILL.md` | `/caveman` |
-   | Codex CLI | `~/.codex/prompts/caveman.md` | `/caveman` |
-   | ChatGPT web app | `~/.local/share/caveman/chatgpt-custom-instructions.md` | paste by hand (see below) |
-
-   The ChatGPT web app has no local config, so the script only generates the
-   text. Paste it into **Settings → Personalization → Custom Instructions →
-   "What traits should ChatGPT have?"** — the condensed version fits that
-   field's ~1500 character cap.
-
-   For Claude Code and Codex CLI, activate with `/caveman` (or
-   `/caveman lite|full|ultra`) and turn it off by saying "normal mode".
-   Override `CAVEMAN_REF`, `CLAUDE_DIR`, `CODEX_DIR`, or `CHATGPT_OUT` to
-   change the pinned upstream version or the install paths.
+7. `setup_caveman_skill.sh` installs the upstream Caveman ultra-compressed
+   response mode for supported AI agents.
 
 ## Finance Extract Workflow
 

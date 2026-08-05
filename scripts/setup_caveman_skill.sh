@@ -4,16 +4,16 @@
 #   ./setup_caveman_skill.sh --dry-run  # show what would be fetched/written, change nothing
 #   ./setup_caveman_skill.sh -h|--help  # show help
 #
-# Installs the "caveman" skill (ultra-compressed /caveman response mode) for both
-# Claude and ChatGPT. Downloads the skill markdown from the upstream project
+# Installs the "caveman" skill (ultra-compressed response mode) for Claude,
+# Codex, and ChatGPT. Downloads the skill markdown from the upstream project
 # (github.com/JuliusBrussee/caveman), pinned to CAVEMAN_REF, and installs it to
 # each target that is present on this machine:
 #
 #   Claude Code   $CLAUDE_DIR/skills/caveman/SKILL.md      (auto-discovered; no settings change)
-#   Codex CLI     $CODEX_DIR/prompts/caveman.md            (invoke with /caveman)
+#   Codex         $CODEX_SKILLS_DIR/caveman/SKILL.md       (auto-discovered; no settings change)
 #   ChatGPT web   $CHATGPT_OUT                             (paste into Custom Instructions)
 #
-# Claude Code and Codex CLI are skipped when not installed. The ChatGPT web app
+# Claude Code and Codex are skipped when not installed. The ChatGPT web app
 # has no local config, so the script cannot install anything there — it writes a
 # condensed, paste-ready version of the skill and prints where to paste it.
 # Safe to re-run; an existing file is backed up to <file>.bak before overwriting.
@@ -21,11 +21,14 @@
 # Env overrides:
 #   CAVEMAN_REF   upstream git ref (tag/branch/commit) to fetch. Default: v1.9.1
 #   CLAUDE_DIR    global Claude Code config dir. Default: $HOME/.claude
-#   CODEX_DIR     global Codex CLI config dir. Default: $HOME/.codex
+#   CODEX_DIR     global Codex config dir, used to detect Codex. Default: $HOME/.codex
+#   CODEX_SKILLS_DIR
+#                 global Codex user-skills dir. Default: $HOME/.agents/skills
 #   CHATGPT_OUT   where to write the ChatGPT custom-instructions text.
 #                 Default: $HOME/.local/share/caveman/chatgpt-custom-instructions.md
 #
-# Once installed, invoke with /caveman (or /caveman lite|full|ultra).
+# Once installed, invoke with /caveman in Claude Code or Codex ACP (such as
+# Zed), or select/mention the skill in native Codex with /skills or $caveman.
 # Turn it off by saying "normal mode" / "stop caveman".
 
 set -euo pipefail
@@ -33,11 +36,12 @@ set -euo pipefail
 REF="${CAVEMAN_REF:-v1.9.1}"
 CLAUDE_DIR="${CLAUDE_DIR:-$HOME/.claude}"
 CODEX_DIR="${CODEX_DIR:-$HOME/.codex}"
+CODEX_SKILLS_DIR="${CODEX_SKILLS_DIR:-$HOME/.agents/skills}"
 CHATGPT_OUT="${CHATGPT_OUT:-$HOME/.local/share/caveman/chatgpt-custom-instructions.md}"
 REPO="JuliusBrussee/caveman"
 SKILL_URL="https://raw.githubusercontent.com/$REPO/$REF/skills/caveman/SKILL.md"
 CLAUDE_DEST="$CLAUDE_DIR/skills/caveman/SKILL.md"
-CODEX_DEST="$CODEX_DIR/prompts/caveman.md"
+CODEX_DEST="$CODEX_SKILLS_DIR/caveman/SKILL.md"
 DRY_RUN=0
 
 for arg in "$@"; do
@@ -89,9 +93,8 @@ install_file() {
 
 echo "Fetching caveman skill ($REPO @ $REF)..."
 SKILL_TMP="$(mktemp)"
-CODEX_TMP="$(mktemp)"
 CHATGPT_TMP="$(mktemp)"
-trap 'rm -f "$SKILL_TMP" "$CODEX_TMP" "$CHATGPT_TMP"' EXIT
+trap 'rm -f "$SKILL_TMP" "$CHATGPT_TMP"' EXIT
 
 if ! curl -fsSL "$SKILL_URL" -o "$SKILL_TMP"; then
   echo "Error: failed to download $SKILL_URL" >&2
@@ -117,26 +120,14 @@ else
   echo "  skipped — no $CLAUDE_DIR and no 'claude' on PATH"
 fi
 
-# ---------- Codex CLI ----------
-
-# Codex reads custom prompts from $CODEX_DIR/prompts/*.md and exposes each as a
-# slash command. Its frontmatter keys differ from a Claude skill's, so swap the
-# upstream frontmatter for a Codex-flavored one and keep the body verbatim.
-{
-  printf -- '---\n'
-  printf 'description: Ultra-compressed caveman response mode (lite/full/ultra/wenyan)\n'
-  printf 'argument-hint: "[lite|full|ultra|wenyan-lite|wenyan-full|wenyan-ultra]"\n'
-  printf -- '---\n\n'
-  printf 'Caveman level: $ARGUMENTS (default: full when no level given).\n\n'
-  sed '1,/^---$/d' "$SKILL_TMP"
-} > "$CODEX_TMP"
+# ---------- Codex ----------
 
 echo
-echo "Codex CLI:"
-if [ -d "$CODEX_DIR" ] || command -v codex >/dev/null 2>&1; then
-  install_file "$CODEX_TMP" "$CODEX_DEST"
+echo "Codex:"
+if [ -d "$CODEX_DIR" ] || [ -d "$CODEX_SKILLS_DIR" ] || command -v codex >/dev/null 2>&1; then
+  install_file "$SKILL_TMP" "$CODEX_DEST"
 else
-  echo "  skipped — no $CODEX_DIR and no 'codex' on PATH"
+  echo "  skipped — no $CODEX_DIR, no $CODEX_SKILLS_DIR, and no 'codex' on PATH"
 fi
 
 # ---------- ChatGPT web app ----------
@@ -178,10 +169,13 @@ if [ "$DRY_RUN" -eq 1 ]; then
 fi
 
 echo
-echo "Claude Code / Codex CLI (restart the agent if it is already running):"
+echo "Claude Code / Codex ACP (restart the agent if it is already running):"
 echo "  /caveman                    activate caveman mode (default: full)"
 echo "  /caveman lite|full|ultra    set intensity level"
 echo "  say \"normal mode\" / \"stop caveman\" to turn it off"
+echo
+echo "Native Codex CLI / IDE:"
+echo "  use /skills or mention \$caveman, optionally followed by a level"
 echo
 echo "ChatGPT web app — paste the generated text by hand:"
 echo "  chatgpt.com -> Settings -> Personalization -> Custom Instructions"
