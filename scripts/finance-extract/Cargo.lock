@@ -256,6 +256,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "gnucash-transaction-create"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "gnucash-transaction-extract"
 version = "0.1.0"
 dependencies = [

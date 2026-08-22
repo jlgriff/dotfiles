@@ -4,5 +4,6 @@ members = [
     "walmart-order-extract",
     "gnucash-account-extract",
     "gnucash-transaction-extract",
+    "gnucash-transaction-create",
 ]
 resolver = "3"

@@ -20,3 +20,4 @@ if [ -d "$FNM_PATH" ]; then
   eval "$(fnm env --shell zsh)"
 fi
 export PATH="$HOME/.local/bin:$PATH"
+export PATH="$(brew --prefix rustup)/bin:$PATH"

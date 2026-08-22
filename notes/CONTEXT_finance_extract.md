@@ -21,11 +21,17 @@ re-processes every file and rewrites `.processed` automatically).
 4. **`transactions.json`** — Recent GnuCash transactions with date, description,
    and splits (account, amount, memo). Use these as categorization precedent.
 
+Amazon Order Details PDFs can be converted to the first file's schema with
+`skills/parse-amazon-invoice-pdfs/`. Its bundled helper extracts every PDF in a
+batch with Poppler, and its `SKILL.md` defines parsing and validation rules. Do
+not pass PDFs to `amazon-order-extract`; that CLI accepts saved HTML pages.
+
 ## Item Quantities and Prices
 
 Each item has a `quantity` field. Interpret `price` as follows:
 
-- **Walmart** (parsed from PDF invoices) and **single-item Amazon orders** —
+- **Walmart PDF invoices**, **Amazon PDFs parsed with the repository skill**,
+  and **single-item Amazon HTML orders** —
   `price` is the **line total** for that quantity. Item prices sum to the
   subtotal directly; do not multiply by `quantity` (it is informational).
 - **Multi-item Amazon orders** — saved Amazon "HTML Only" pages do not contain
@@ -54,41 +60,63 @@ an existing entry with a matching amount on the same date. Be careful with
 amount formatting — the CSV may omit trailing zeros (e.g. `$35.3` vs `$35.30`).
 Skip any charge that appears to already be entered.
 
-## Transaction Output Format
+## Canonical Transaction Output
 
-Write the output to a file at `~/Downloads/new_transactions_<YYYY-MM-DD>.md`,
-where the date is today's date (the date the file is generated). Do not print
-the tables inline in chat — the file is the deliverable.
+Write the result to `~/Downloads/new_transactions_<YYYY-MM-DD>.json`, where the
+date is the generation date. Do not print the JSON inline in chat. This neutral
+file is the source of truth for both generated formats; neither generated file
+is an input to the other.
 
-The file contains **only** the transaction tables — optionally preceded by a
-short flag block at the very top for issues still needing the user's input (see
-Flagging Issues). Never add a "Notes", "Resolved Questions", or summary section:
-once a question is answered, fold the answer into that transaction's Memo and
-Account and delete the flag. A single introductory line naming the source is
-fine; anything longer belongs in chat, not the file.
+Use schema version 1:
 
-Output each transaction as a markdown table. Each transaction is a separate table.
+```json
+{
+  "version": 1,
+  "source_description": "Example statement transactions.",
+  "review_notes": [
+    "Confirm the example opening balance before entry."
+  ],
+  "transactions": [
+    {
+      "date": "2030-01-02",
+      "description": "Example Store",
+      "splits": [
+        {
+          "memo": "Widget",
+          "account": "Expenses:Supplies",
+          "amount": "10.00"
+        },
+        {
+          "account": "Liabilities:Example Card",
+          "amount": "-10.00",
+          "source": true
+        }
+      ]
+    }
+  ]
+}
+```
 
-**Structure:**
-
-Column order matches GnuCash's register: Date, Description, Memo, Account, Amount.
-
-| Date | Description | Memo | Account | Amount |
-|------|-------------|------|---------|--------|
-| _post date_ | _vendor_ | _item description_ | _account path_ | _signed $_ |
-| | | _item description_ | _account path_ | _signed $_ |
-| | | ... | ... | ... |
+Use only these keys. Top-level `source_description` and `review_notes` are
+optional and appear only in the Markdown review file. Use `review_notes` for
+confirmed actions that must happen before entry, not unresolved questions.
+Split-level `memo` and `source` may be omitted when empty or false. Amounts must
+be quoted, signed decimal values with a period separator, no currency symbol,
+and no digit grouping. Keep normal currency precision unless the renderer will
+be called with a different `--decimal-places` value. Mark exactly one source
+split per transaction with `"source": true`; this is normally the statement's
+bank or credit-card account.
 
 **Rules:**
 
 - **Date** — use the order date from the JSON. If the user provides a credit
   card statement date that differs, prefer the statement date.
-- Date and Description appear only on the first row of each transaction.
 - Every item gets its own row with the correct expense account and a Memo.
 - Sales tax gets its own row (`Expenses:Taxes:Sales Tax`) only when a
   transaction has items going to different expense accounts. If all items go
   to the same account, include tax in that single row's amount.
-- The credit card (or bank account) row goes last with the negative total.
+- The source split has the negative total for a purchase and the positive total
+  for a refund.
 - All amounts must sum to zero.
 - Refunds are always separate transactions from the original purchase, even
   for partial refunds. Reverse all signs (credit card row is positive, expense
@@ -170,23 +198,28 @@ Some merchants have consistent memo patterns across months. Check
 
 ## Flagging Issues
 
-If the CSV contains charges that look anomalous, flag them at the top of the
-output rather than embedding notes in memo fields. Examples:
+If the CSV contains charges that look anomalous, flag them in chat before
+creating the canonical JSON rather than embedding notes in memo fields.
+Examples:
 - Duplicate charges (same merchant, same amount, same date appearing twice)
 - Unexpected double billing from a merchant
 
-Flags are temporary. Once the user resolves an item, update its row and remove
-the flag; the delivered file must not retain a resolved-questions section.
+Flags are temporary. Once the user resolves an item, fold the answer into its
+Memo and Account. The delivered JSON must account for every statement row and
+must not contain a resolved-questions section.
 
 ## Existing Imbalance Corrections
 
 When `transactions.json` contains transactions with `Imbalance-USD` splits,
-check whether order summary data can now categorize them. Present these as a
-separate "Corrections" section so the user can update them in GnuCash.
+check whether order summary data can now categorize them. Report these
+separately in chat so the user can update them in GnuCash.
 
-## Examples
+## Rendered Markdown Examples
 
-All account paths below are illustrative. Use only paths from `accounts.json`.
+`gnucash-transaction-create` renders the neutral JSON into this review format.
+It puts the source split last and shows Date and Description only on the first
+row. All account paths below are illustrative. Use only paths from
+`accounts.json`.
 
 Simple single-item order:
 
@@ -227,5 +260,47 @@ Walmart split shipment (charge cannot be matched to specific items):
 | 2026-03-24 | Walmart | Order XXXXXXXX partial shipment | Imbalance-USD | $109.33 |
 |  |  |  | Liabilities:Credit Card | -$109.33 |
 
-When presenting multiple transactions, separate each table with a blank line.
-Group by date.
+The renderer separates transaction tables with a blank line and preserves input
+transaction order. Group the canonical JSON transactions by date.
+
+## Creating Review Markdown and GnuCash CSV
+
+After all flags are resolved, validate the canonical JSON and create both files:
+
+```bash
+gnucash-transaction-create \
+  --input <transactions.json> \
+  --markdown-output <transactions.md> \
+  --csv-output <transactions.csv> \
+  --expected-transactions <count>
+```
+
+The renderer has no built-in paths, account names, dates, totals, or expected
+transaction counts. It validates the neutral data once, then independently
+creates each output. It:
+
+- rejects unknown JSON fields and malformed amounts;
+- requires exactly one source split per transaction;
+- requires every transaction to sum exactly to zero;
+- puts the source split last in Markdown and first in CSV;
+- supports configurable currency symbols, decimal separators, CSV delimiters,
+  decimal precision, transaction-ID prefix, and expected transaction count;
+- writes GnuCash's current 18-column transaction-export layout, leaving ignored
+  fields blank and using numeric Amount and Value columns for single-currency
+  transactions;
+- adds import-only grouping keys so adjacent transactions with the same date and
+  description remain separate; these keys are not stored as transaction GUIDs;
+- refuses to overwrite either output unless `--force` is supplied.
+
+Without explicit output paths, it creates `<input-stem>.md` and
+`<input-stem>_gnucash.csv` beside the JSON file.
+
+Review the Markdown, apply any corrections to the canonical JSON, then rerun
+the renderer so both generated files stay synchronized. Do not use either
+generated file as the source for the other.
+
+For GnuCash, select **File → Import → Import Transactions from CSV**, choose the
+built-in **GnuCash Export Format** settings, and leave the global Account blank.
+This preset enables multi-split mode, skips the one-line header, and maps the 18
+columns by position. Select date and currency formats matching the file, review
+every account mapping and possible duplicate, then apply the import.
