@@ -49,4 +49,6 @@ These apply always. The matching skill carries the detail.
   `.module.css`. Leave the existing modules alone unless I ask for a migration.
 - **Commit message:** end any response that changed repo code with one sentence, under 25 words,
   first word a past-tense verb and nothing in front of it.
+- **Squashing:** I squash-merge every branch, so intermediate commits collapse into one. Never
+  rewrite history or force-push to tidy a branch up.
 - **Never commit, push, or post to GitHub** unless I ask. Draft it and hand it back.
