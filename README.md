@@ -86,21 +86,66 @@ Personal scripts, notes, and machine setup files.
    response mode for supported AI agents.
 
 8. Install repository-owned, agent-neutral skills for Codex, Claude Code, or
-   both. Each agent receives a symlink to the same source folder:
+   both. `install_skills.sh` symlinks every folder in `skills/` into each
+   agent's skill directory, so one source folder serves both agents:
    ```bash
-   mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills" "$HOME/.claude/skills"
-   ln -sfn "$DOTFILES_DIR/skills/parse-amazon-invoice-pdfs" \
-     "${CODEX_HOME:-$HOME/.codex}/skills/parse-amazon-invoice-pdfs"
-   ln -sfn "$DOTFILES_DIR/skills/parse-amazon-invoice-pdfs" \
-     "$HOME/.claude/skills/parse-amazon-invoice-pdfs"
+   "$DOTFILES_DIR/scripts/install_skills.sh" --dry-run   # show what would change
+   "$DOTFILES_DIR/scripts/install_skills.sh"
    ```
+   Claude Code reads `~/.claude/skills` and Codex reads `~/.agents/skills`;
+   override either with `CLAUDE_SKILLS_DIR` or `CODEX_SKILLS_DIR`. The same run
+   links `instructions/interaction.md` into `~/.claude/CLAUDE.md` and
+   `~/.codex/AGENTS.md` (override with `CLAUDE_INSTRUCTIONS` /
+   `CODEX_INSTRUCTIONS`). The script refuses to replace a path that exists as a
+   real file or folder, so move a hand-installed copy aside first. Re-run after
+   adding a skill — editing an installed file needs no re-run.
 
 ## Agent Skills
+
+Every skill is a single agent-neutral `SKILL.md` whose frontmatter carries only
+`name` and `description`, which is what keeps one file valid for both Claude
+Code and Codex. Agents load a skill two ways: implicitly, by matching its
+`description` against the task, and explicitly — `/name` in Claude Code,
+`$name` in Codex.
 
 - **parse-amazon-invoice-pdfs** — Extracts one or many Amazon Order Details
   PDFs through Poppler before an agent parses items, quantities, prices, and
   totals. Includes a macOS/Linux batch helper, arithmetic checks, privacy
   rules, and the finance-extract-compatible Amazon summary schema.
+- **build-feature** — Research first, drive the work with tests, implement the
+  smallest thing that works, then cull the scaffolding tests that no longer
+  earn their place.
+- **code-comments** — A one-line doc on every function and almost nothing
+  else; an inline comment is a signal to rename or extract instead.
+- **commit-message** — One sentence, under 25 words, leading past-tense verb,
+  no prefix in front of it.
+- **demo-video** — Routes a demo or screen-recording request to whatever
+  recording skill the target repo already owns.
+- **failing-test-first** — Show a test failing before adding it; a test never
+  seen to fail is not evidence.
+- **revise-message** — Tightens a draft message for clarity and flow while
+  preserving your voice.
+
+### Agent instructions
+
+`instructions/interaction.md` holds the default working stance every agent reads
+on every turn — how to lead with the answer, how to report unverified state, how
+terse to be, and the standing defaults for comments, scope, styling, and commit
+messages. A skill loads only when its `description` matches the task, so
+anything that must apply to *every* response belongs here instead of in a skill.
+
+### Adding a skill
+
+```bash
+mkdir -p skills/my-skill && $EDITOR skills/my-skill/SKILL.md
+scripts/install_skills.sh
+```
+
+Keep frontmatter to `name` and `description` only — `install_skills.sh` fails
+the run otherwise, because Codex rejects extra keys. Put all "when to use" text
+in `description`, since that is the trigger for both agents. Never name a host
+tool ("read the file", not "use the Read tool"), and keep paths relative to the
+skill directory.
 
 ## Finance Extract Workflow
 
@@ -192,7 +237,9 @@ GnuCash import; neither generated format depends on the other.
 ```
 scripts/                # Shell scripts (backup, updates, etc.)
   finance-extract/      # Cargo workspace — Rust CLIs for financial data extraction
+instructions/           # Default agent stance, linked to each agent's always-read file
 skills/                 # Agent-neutral SKILL.md workflows and bundled helpers
+                        # (installed with scripts/install_skills.sh)
 starship.toml           # Starship prompt configuration (symlinked from ~/.config/starship.toml)
 zshrc                   # Zsh configuration (symlinked from ~/.zshrc)
 crontab.txt             # Cron schedule for automated scripts
