@@ -23,7 +23,7 @@ function is **for**, in words its name does not already supply. Lead with purpos
 rationale only if it still fits on the line.
 
 "The visited set guards a parent cycle" fails: it explains one detail and never says the function
-collects a leaf's inherited topics.
+collects the values a node inherits from its ancestors.
 
 ## When a comment survives
 
@@ -36,8 +36,8 @@ Not in comments, identifiers, test or describe names, file names, string literal
 or schema descriptions. A tracker's ids are a third party's system; wiring them into the codebase
 couples it to something that gets renamed, migrated, and eventually retired.
 
-State the fact the ticket carried: "payloads written before scope stamping", not "pre-ABC-1234
-payloads". Ticket ids belong in branch names, commit messages (never as a leading prefix), and PR
+State the fact the ticket carried: "records written before the schema migration", not "pre-ABC-1234
+records". Ticket ids belong in branch names, commit messages (never as a leading prefix), and PR
 descriptions.
 
 ## Never

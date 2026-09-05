@@ -17,8 +17,8 @@ Good:
 
 ```
 Fixed the auth middleware token expiry check to compare inclusively.
-Removed the unused Statsig server wiring and its dependency.
-Redacted query params from client Sentry captures.
+Removed the unused feature-flag server wiring and its dependency.
+Redacted query params from client error reports.
 ```
 
 Bad:

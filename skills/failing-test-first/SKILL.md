@@ -54,7 +54,7 @@ Good:
 
 ```
 Removed the fix, ran the test: "expected [] to have a length of 1". Restored it, 30 pass.
-Baseline asserted: question published, present in the payload and in the course. Then unpublished.
+Baseline asserted: record active, present in the response and in its parent list. Then deactivated.
 ```
 
 Bad:
