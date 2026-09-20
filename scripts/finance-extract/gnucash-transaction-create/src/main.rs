@@ -7,33 +7,13 @@ use std::path::{Path, PathBuf};
 use std::process;
 
 const SUPPORTED_SCHEMA_VERSION: u32 = 1;
-const GNUCASH_EXPORT_HEADERS: [&str; 18] = [
-    "Date",
-    "Transaction ID",
-    "Number",
-    "Description",
-    "Notes",
-    "Commodity/Currency",
-    "Void Reason",
-    "Action",
-    "Memo",
-    "Full Account Name",
-    "Account Name",
-    "Amount With Sym",
-    "Amount Num.",
-    "Value With Sym",
-    "Value Num.",
-    "Reconcile",
-    "Reconcile Date",
-    "Rate/Price",
-];
 
 #[derive(Parser, Debug)]
 #[command(
-    about = "Validate transaction JSON and independently create Markdown and GnuCash CSV.",
+    about = "Validate transaction JSON and independently create Markdown and GnuCash QIF.",
     long_about = "Validate a neutral JSON transaction file, then independently render both a\n\
-        Markdown review file and a GnuCash multi-split CSV in transaction-export\n\
-        column order. Neither generated file is parsed to produce the other.",
+        Markdown review file and a multi-account, multi-split QIF for GnuCash import.\n\
+        Neither generated file is parsed to produce the other.",
     after_help = "\
 Canonical amount values in the JSON must be strings with a period decimal separator,
 no currency symbol, and no digit grouping (for example, \"-1234.50\"). Each
@@ -42,9 +22,8 @@ transaction must mark exactly one split with \"source\": true.
 Optional \"source_description\" and \"review_notes\" values appear only in the
 Markdown review file.
 
-For GnuCash, import the CSV with the built-in 'GnuCash Export Format' settings,
-leave the global Account blank, and select date/currency formats matching the file.
-Generated Transaction ID values are import-only grouping keys, not ledger GUIDs."
+For GnuCash, use File > Import > Import QIF, choose MM/DD/YYYY if prompted,
+then review every account/category mapping and possible duplicate before importing."
 )]
 struct Cli {
     /// Canonical JSON transaction file.
@@ -55,9 +34,9 @@ struct Cli {
     #[arg(short = 'm', long, value_name = "FILE")]
     markdown_output: Option<PathBuf>,
 
-    /// GnuCash CSV output. Defaults to '<input-stem>_gnucash.csv'.
-    #[arg(short = 'c', long, value_name = "FILE")]
-    csv_output: Option<PathBuf>,
+    /// GnuCash QIF output. Defaults to '<input-stem>_gnucash.qif'.
+    #[arg(short = 'q', long, value_name = "FILE")]
+    qif_output: Option<PathBuf>,
 
     /// Currency symbol shown only in Markdown. May be empty.
     #[arg(long, default_value = "$", value_name = "SYMBOL")]
@@ -71,14 +50,6 @@ struct Cli {
     #[arg(long, default_value = ".", value_name = "CHARACTER")]
     markdown_decimal_separator: char,
 
-    /// Output CSV column separator.
-    #[arg(long, default_value = ",", value_name = "CHARACTER")]
-    csv_delimiter: char,
-
-    /// Decimal separator written to numeric CSV fields.
-    #[arg(long, default_value = ".", value_name = "CHARACTER")]
-    csv_decimal_separator: char,
-
     /// Amount precision in both generated files.
     #[arg(
         long,
@@ -87,15 +58,11 @@ struct Cli {
     )]
     decimal_places: u32,
 
-    /// Prefix for import-only transaction grouping keys.
-    #[arg(long, default_value = "import-", value_name = "TEXT")]
-    transaction_id_prefix: String,
-
     /// Fail unless the JSON contains this many transactions.
     #[arg(long, value_name = "COUNT")]
     expected_transactions: Option<usize>,
 
-    /// Replace existing Markdown and CSV outputs.
+    /// Replace existing Markdown and QIF outputs.
     #[arg(long)]
     force: bool,
 }
@@ -163,10 +130,7 @@ struct RenderConfig {
     currency_symbol: String,
     currency_symbol_position: SymbolPosition,
     markdown_decimal_separator: char,
-    csv_delimiter: char,
-    csv_decimal_separator: char,
     decimal_places: u32,
-    transaction_id_prefix: String,
 }
 
 fn main() {
@@ -201,26 +165,23 @@ fn run(cli: Cli) -> Result<(), String> {
         currency_symbol: cli.currency_symbol,
         currency_symbol_position: cli.currency_symbol_position,
         markdown_decimal_separator: cli.markdown_decimal_separator,
-        csv_delimiter: cli.csv_delimiter,
-        csv_decimal_separator: cli.csv_decimal_separator,
         decimal_places: cli.decimal_places,
-        transaction_id_prefix: cli.transaction_id_prefix,
     };
     let markdown = render_markdown(&document, &config);
-    let csv = render_csv(&document.transactions, &config);
+    let qif = render_qif(&document.transactions, &config)?;
 
     let markdown_output = cli
         .markdown_output
         .unwrap_or_else(|| default_markdown_path(&cli.input));
-    let csv_output = cli
-        .csv_output
-        .unwrap_or_else(|| default_csv_path(&cli.input));
-    validate_output_paths(&cli.input, &markdown_output, &csv_output)?;
+    let qif_output = cli
+        .qif_output
+        .unwrap_or_else(|| default_qif_path(&cli.input));
+    validate_output_paths(&cli.input, &markdown_output, &qif_output)?;
     write_output_pair(
         &markdown_output,
         markdown.as_bytes(),
-        &csv_output,
-        csv.as_bytes(),
+        &qif_output,
+        qif.as_bytes(),
         cli.force,
     )?;
 
@@ -230,12 +191,12 @@ fn run(cli: Cli) -> Result<(), String> {
         document.transactions.len()
     );
     println!("  Markdown: {}", markdown_output.display());
-    println!("  GnuCash CSV: {}", csv_output.display());
+    println!("  GnuCash QIF: {}", qif_output.display());
     println!("Source split totals:");
     for (account, total) in source_totals(&document.transactions)? {
         println!(
             "  {account}: {}",
-            format_number(total, config.csv_decimal_separator, config.decimal_places)
+            format_number(total, '.', config.decimal_places)
         );
     }
     Ok(())
@@ -243,15 +204,8 @@ fn run(cli: Cli) -> Result<(), String> {
 
 fn validate_cli(cli: &Cli) -> Result<(), String> {
     validate_numeric_separator("Markdown decimal separator", cli.markdown_decimal_separator)?;
-    validate_numeric_separator("CSV decimal separator", cli.csv_decimal_separator)?;
-    if matches!(cli.csv_delimiter, '\n' | '\r' | '"') {
-        return Err("CSV delimiter cannot be a line break or double quote".to_string());
-    }
     if cli.currency_symbol.contains(['\n', '\r']) {
         return Err("currency symbol cannot contain a line break".to_string());
-    }
-    if cli.transaction_id_prefix.contains(['\n', '\r']) {
-        return Err("transaction ID prefix cannot contain a line break".to_string());
     }
     Ok(())
 }
@@ -521,96 +475,105 @@ fn escape_markdown_cell(value: &str) -> String {
     value.replace('\\', "\\\\").replace('|', "\\|")
 }
 
-fn render_csv(transactions: &[Transaction], config: &RenderConfig) -> String {
-    let mut csv = String::new();
-    write_csv_row(&mut csv, &GNUCASH_EXPORT_HEADERS, config.csv_delimiter);
-    let unit_price = format_number(
-        10_i128.pow(config.decimal_places),
-        config.csv_decimal_separator,
-        config.decimal_places,
-    );
-
-    for (transaction_index, transaction) in transactions.iter().enumerate() {
-        let transaction_id = format!(
-            "{}{:06}",
-            config.transaction_id_prefix,
-            transaction_index + 1
-        );
-        let source = &transaction.splits[transaction.source_index];
-        write_csv_split(
-            &mut csv,
-            transaction,
-            source,
-            &transaction_id,
-            true,
-            &unit_price,
-            config,
-        );
-        for (split_index, split) in transaction.splits.iter().enumerate() {
-            if split_index != transaction.source_index {
-                write_csv_split(
-                    &mut csv,
-                    transaction,
-                    split,
-                    &transaction_id,
-                    false,
-                    &unit_price,
-                    config,
-                );
-            }
+/// Renders account-grouped QIF transactions so one file can import multiple source accounts.
+fn render_qif(transactions: &[Transaction], config: &RenderConfig) -> Result<String, String> {
+    let mut qif = String::new();
+    let mut source_accounts = Vec::new();
+    for transaction in transactions {
+        let account = &transaction.splits[transaction.source_index].account;
+        if !source_accounts.contains(account) {
+            source_accounts.push(account.clone());
         }
     }
-    csv
+
+    for account in source_accounts {
+        let account_type = qif_account_type(&account);
+        qif.push_str("!Account\nN");
+        qif.push_str(&account);
+        qif.push_str("\nT");
+        qif.push_str(account_type);
+        qif.push_str("\n^\n!Type:");
+        qif.push_str(account_type);
+        qif.push('\n');
+
+        for transaction in transactions {
+            let source = &transaction.splits[transaction.source_index];
+            if source.account != account {
+                continue;
+            }
+            qif.push('D');
+            qif.push_str(&format_qif_date(&transaction.date)?);
+            qif.push_str("\nT");
+            qif.push_str(&format_number(source.amount, '.', config.decimal_places));
+            qif.push_str("\nP");
+            qif.push_str(&transaction.description);
+            qif.push('\n');
+
+            for (index, split) in transaction.splits.iter().enumerate() {
+                if index == transaction.source_index {
+                    continue;
+                }
+                qif.push('S');
+                qif.push_str(&qif_split_account(&split.account));
+                qif.push('\n');
+                if !split.memo.is_empty() {
+                    qif.push('E');
+                    qif.push_str(&split.memo);
+                    qif.push('\n');
+                }
+                qif.push('$');
+                qif.push_str(&format_number(-split.amount, '.', config.decimal_places));
+                qif.push('\n');
+            }
+            qif.push_str("^\n");
+        }
+    }
+    Ok(qif)
 }
 
-fn write_csv_split(
-    csv: &mut String,
-    transaction: &Transaction,
-    split: &Split,
-    transaction_id: &str,
-    first_split: bool,
-    unit_price: &str,
-    config: &RenderConfig,
-) {
-    let date = if first_split {
-        transaction.date.as_str()
+/// Maps source account paths to QIF account types used by GnuCash's importer.
+fn qif_account_type(account: &str) -> &'static str {
+    if account.starts_with("Liabilities:") {
+        "CCard"
     } else {
-        ""
-    };
-    let description = if first_split {
-        transaction.description.as_str()
+        "Bank"
+    }
+}
+
+/// Marks balance-sheet destinations as transfers while leaving income and expense categories plain.
+fn qif_split_account(account: &str) -> String {
+    if account.starts_with("Expenses:") || account.starts_with("Income:") {
+        account.to_string()
     } else {
-        ""
-    };
-    let amount = format_number(
-        split.amount,
-        config.csv_decimal_separator,
-        config.decimal_places,
-    );
-    write_csv_row(
-        csv,
-        &[
-            date,
-            transaction_id,
-            "",
-            description,
-            "",
-            "",
-            "",
-            "",
-            &split.memo,
-            &split.account,
-            "",
-            "",
-            &amount,
-            "",
-            &amount,
-            "n",
-            "",
-            unit_price,
-        ],
-        config.csv_delimiter,
-    );
+        format!("[{account}]")
+    }
+}
+
+/// Converts canonical ISO dates to the unambiguous US QIF date written by this renderer.
+fn format_qif_date(date: &str) -> Result<String, String> {
+    let bytes = date.as_bytes();
+    if bytes.len() != 10 || bytes[4] != b'-' || bytes[7] != b'-' {
+        return Err(format!("invalid ISO date '{date}'"));
+    }
+    let year = &date[0..4];
+    let month = &date[5..7];
+    let day = &date[8..10];
+    if !year.chars().all(|value| value.is_ascii_digit())
+        || !month.chars().all(|value| value.is_ascii_digit())
+        || !day.chars().all(|value| value.is_ascii_digit())
+    {
+        return Err(format!("invalid ISO date '{date}'"));
+    }
+    let month_number: u8 = month
+        .parse()
+        .map_err(|_| format!("invalid ISO date '{date}'"))?;
+    let day_number: u8 = day
+        .parse()
+        .map_err(|_| format!("invalid ISO date '{date}'"))?;
+    if !(1..=12).contains(&month_number) || !(1..=31).contains(&day_number) {
+        return Err(format!("invalid ISO date '{date}'"));
+    }
+    Ok(format!("{month}/{day}/{year}"))
 }
 
 fn format_number(value: i128, decimal_separator: char, decimal_places: u32) -> String {
@@ -628,28 +591,6 @@ fn format_number(value: i128, decimal_separator: char, decimal_places: u32) -> S
         absolute % scale,
         width = decimal_places as usize
     )
-}
-
-fn write_csv_row(output: &mut String, fields: &[&str], delimiter: char) {
-    for (index, field) in fields.iter().enumerate() {
-        if index > 0 {
-            output.push(delimiter);
-        }
-        output.push_str(&escape_csv_field(field, delimiter));
-    }
-    output.push('\n');
-}
-
-fn escape_csv_field(field: &str, delimiter: char) -> String {
-    if field.contains(delimiter)
-        || field.contains('"')
-        || field.contains('\n')
-        || field.contains('\r')
-    {
-        format!("\"{}\"", field.replace('"', "\"\""))
-    } else {
-        field.to_string()
-    }
 }
 
 fn source_totals(transactions: &[Transaction]) -> Result<BTreeMap<String, i128>, String> {
@@ -672,16 +613,16 @@ fn default_markdown_path(input: &Path) -> PathBuf {
     input.with_file_name(format!("{stem}.md"))
 }
 
-fn default_csv_path(input: &Path) -> PathBuf {
+fn default_qif_path(input: &Path) -> PathBuf {
     let stem = input
         .file_stem()
         .and_then(|value| value.to_str())
         .unwrap_or("transactions");
-    input.with_file_name(format!("{stem}_gnucash.csv"))
+    input.with_file_name(format!("{stem}_gnucash.qif"))
 }
 
-fn validate_output_paths(input: &Path, markdown: &Path, csv: &Path) -> Result<(), String> {
-    for output in [markdown, csv] {
+fn validate_output_paths(input: &Path, markdown: &Path, qif: &Path) -> Result<(), String> {
+    for output in [markdown, qif] {
         let parent = output.parent().unwrap_or_else(|| Path::new("."));
         if !parent.as_os_str().is_empty() && !parent.is_dir() {
             return Err(format!(
@@ -690,11 +631,11 @@ fn validate_output_paths(input: &Path, markdown: &Path, csv: &Path) -> Result<()
             ));
         }
     }
-    if paths_match(input, markdown)? || paths_match(input, csv)? {
+    if paths_match(input, markdown)? || paths_match(input, qif)? {
         return Err("input and output paths must differ".to_string());
     }
-    if paths_match(markdown, csv)? {
-        return Err("Markdown and CSV output paths must differ".to_string());
+    if paths_match(markdown, qif)? {
+        return Err("Markdown and QIF output paths must differ".to_string());
     }
     Ok(())
 }
@@ -727,12 +668,12 @@ fn comparable_path(path: &Path) -> Result<PathBuf, String> {
 fn write_output_pair(
     markdown_path: &Path,
     markdown: &[u8],
-    csv_path: &Path,
-    csv: &[u8],
+    qif_path: &Path,
+    qif: &[u8],
     force: bool,
 ) -> Result<(), String> {
     if !force {
-        let existing: Vec<String> = [markdown_path, csv_path]
+        let existing: Vec<String> = [markdown_path, qif_path]
             .into_iter()
             .filter(|path| path.exists())
             .map(|path| path.display().to_string())
@@ -746,7 +687,7 @@ fn write_output_pair(
     }
 
     let markdown_temp = write_temp_file(markdown_path, "markdown", markdown)?;
-    let csv_temp = match write_temp_file(csv_path, "csv", csv) {
+    let qif_temp = match write_temp_file(qif_path, "qif", qif) {
         Ok(path) => path,
         Err(error) => {
             let _ = fs::remove_file(&markdown_temp);
@@ -756,11 +697,11 @@ fn write_output_pair(
 
     let commit = (|| {
         commit_temp_file(&markdown_temp, markdown_path, force)?;
-        commit_temp_file(&csv_temp, csv_path, force)
+        commit_temp_file(&qif_temp, qif_path, force)
     })();
     if commit.is_err() {
         let _ = fs::remove_file(&markdown_temp);
-        let _ = fs::remove_file(&csv_temp);
+        let _ = fs::remove_file(&qif_temp);
     }
     commit
 }
@@ -849,10 +790,7 @@ mod tests {
             currency_symbol: "$".to_string(),
             currency_symbol_position: SymbolPosition::Prefix,
             markdown_decimal_separator: '.',
-            csv_delimiter: ',',
-            csv_decimal_separator: '.',
             decimal_places: 2,
-            transaction_id_prefix: "test-".to_string(),
         }
     }
 
@@ -862,10 +800,10 @@ mod tests {
     }
 
     #[test]
-    fn independently_renders_markdown_and_csv() {
+    fn independently_renders_markdown_and_qif() {
         let document = sample_document();
         let markdown = render_markdown(&document, &config());
-        let csv = render_csv(&document.transactions, &config());
+        let qif = render_qif(&document.transactions, &config()).unwrap();
 
         assert!(markdown.starts_with(
             "> **Before entry**\n> - Confirm example opening balance.\n\n\
@@ -879,19 +817,66 @@ mod tests {
             "| 2030-01-02 | Example Store | Refund: Widget | Expenses:Supplies | -$5.00 |\n\
              |  |  |  | Liabilities:Example Card | $5.00 |"
         ));
-        assert!(csv.starts_with(
-            "Date,Transaction ID,Number,Description,Notes,Commodity/Currency,Void Reason,Action,Memo,Full Account Name,Account Name,Amount With Sym,Amount Num.,Value With Sym,Value Num.,Reconcile,Reconcile Date,Rate/Price\n"
-        ));
-        assert!(csv.contains(
-            "2030-01-02,test-000001,,Example Store,,,,,,Liabilities:Example Card,,,-10.00,,-10.00,n,,1.00"
-        ));
-        assert!(csv.contains(
-            "2030-01-02,test-000002,,Example Store,,,,,,Liabilities:Example Card,,,5.00,,5.00,n,,1.00"
-        ));
-        assert!(csv.contains(
-            "test-000001,,,,,,,\"Widget, large\",Expenses:Supplies,,,10.00,,10.00,n,,1.00"
-        ));
-        assert!(!csv.contains("opening balance"));
+        assert_eq!(
+            qif,
+            "!Account\n\
+             NLiabilities:Example Card\n\
+             TCCard\n\
+             ^\n\
+             !Type:CCard\n\
+             D01/02/2030\n\
+             T-10.00\n\
+             PExample Store\n\
+             SExpenses:Supplies\n\
+             EWidget, large\n\
+             $-10.00\n\
+             ^\n\
+             D01/02/2030\n\
+             T5.00\n\
+             PExample Store\n\
+             SExpenses:Supplies\n\
+             ERefund: Widget\n\
+             $5.00\n\
+             ^\n"
+        );
+        assert!(!qif.contains("opening balance"));
+    }
+
+    #[test]
+    fn renders_qif_transfer_splits_and_multiple_source_accounts() {
+        let input: InputFile = serde_json::from_str(
+            r#"{
+              "version": 1,
+              "transactions": [
+                {
+                  "date": "2030-02-01",
+                  "description": "Example Store",
+                  "splits": [
+                    {"account": "Expenses:Supplies", "amount": "167.75"},
+                    {"memo": "Gift-card balance", "account": "Assets:Gift Cards", "amount": "-130.65"},
+                    {"account": "Liabilities:Card One", "amount": "-37.10", "source": true}
+                  ]
+                },
+                {
+                  "date": "2030-02-02",
+                  "description": "Other Store",
+                  "splits": [
+                    {"account": "Expenses:Supplies", "amount": "20.00"},
+                    {"account": "Liabilities:Card Two", "amount": "-20.00", "source": true}
+                  ]
+                }
+              ]
+            }"#,
+        )
+        .unwrap();
+        let document = validate_input(input, 2).unwrap();
+        let qif = render_qif(&document.transactions, &config()).unwrap();
+
+        assert_eq!(qif.matches("!Account\n").count(), 2);
+        assert!(qif.contains("NLiabilities:Card One\nTCCard\n^\n!Type:CCard\n"));
+        assert!(qif.contains("SExpenses:Supplies\n$-167.75\n"));
+        assert!(qif.contains("S[Assets:Gift Cards]\nEGift-card balance\n$130.65\n"));
+        assert!(qif.contains("NLiabilities:Card Two\nTCCard\n^\n!Type:CCard\n"));
     }
 
     #[test]
@@ -945,20 +930,15 @@ mod tests {
     }
 
     #[test]
-    fn supports_configurable_rendering() {
+    fn supports_configurable_markdown() {
         let mut config = config();
         config.currency_symbol = " EUR".to_string();
         config.currency_symbol_position = SymbolPosition::Suffix;
         config.markdown_decimal_separator = ',';
-        config.csv_delimiter = ';';
-        config.csv_decimal_separator = ',';
 
         let document = sample_document();
         let markdown = render_markdown(&document, &config);
-        let csv = render_csv(&document.transactions, &config);
         assert!(markdown.contains("10,00 EUR"));
-        assert!(csv.starts_with("Date;Transaction ID;Number;Description"));
-        assert!(csv.contains(";-10,00;;-10,00;n;;1,00"));
     }
 
     #[test]

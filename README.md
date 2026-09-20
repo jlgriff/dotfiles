@@ -151,7 +151,7 @@ skill directory.
 
 The tools in `scripts/finance-extract/` prepare financial data as JSON so an AI
 can create a neutral, balanced transaction file. A renderer validates that file
-and independently creates both Markdown for review and multi-split CSV for
+and independently creates both Markdown for review and multi-account QIF for
 GnuCash import; neither generated format depends on the other.
 
 1. **Save order pages** — For each order, save it into a directory per retailer
@@ -209,28 +209,25 @@ GnuCash import; neither generated format depends on the other.
    gnucash-transaction-create \
      --input <transactions.json> \
      --markdown-output <transactions.md> \
-     --csv-output <transactions.csv> \
+     --qif-output <transactions.qif> \
      --expected-transactions <count>
    ```
    Each transaction must mark exactly one split with `"source": true`. Amounts
    are exact decimal strings such as `"-1234.50"`. The renderer puts the source
-   split last in Markdown and first in CSV. Optional `source_description` and
-   `review_notes` values appear only in Markdown. The renderer refuses to
-   replace either output unless `--force` is supplied and supports configurable
-   CSV and money separators. Omit output arguments to create
-   `<input-stem>.md` and `<input-stem>_gnucash.csv` beside the input. Its
-   transaction IDs are per-file grouping keys used to keep otherwise identical
-   adjacent transactions separate during import; they are not GnuCash ledger
-   GUIDs. Run `gnucash-transaction-create --help` for all options.
+   split last in Markdown and writes each source account as its own QIF account
+   section. Optional `source_description` and `review_notes` values appear only
+   in Markdown. The renderer refuses to replace either output unless `--force`
+   is supplied. Omit output arguments to create `<input-stem>.md` and
+   `<input-stem>_gnucash.qif` beside the input. Run
+   `gnucash-transaction-create --help` for all options.
    Review the Markdown, apply any corrections to the neutral JSON, then rerun
    the renderer so both generated files stay synchronized.
 
-7. **Import into GnuCash** — Use **File → Import → Import Transactions from
-   CSV**, choose the built-in **GnuCash Export Format** settings, and leave the
-   global Account blank. This preset enables multi-split mode, skips the header,
-   and maps the export-format columns by position. Select the date and currency
-   formats matching the file, then review account mappings and transaction
-   matches before applying the import.
+7. **Import into GnuCash** — Use **File → Import → Import QIF** and load the
+   generated QIF. Choose **MM/DD/YYYY** if GnuCash asks for the date format.
+   Review every QIF account and category mapping; GnuCash can create missing
+   accounts during this step. Choose USD as the currency, inspect possible
+   duplicate matches, then apply the import.
 
 ## Structure
 

@@ -263,7 +263,7 @@ Walmart split shipment (charge cannot be matched to specific items):
 The renderer separates transaction tables with a blank line and preserves input
 transaction order. Group the canonical JSON transactions by date.
 
-## Creating Review Markdown and GnuCash CSV
+## Creating Review Markdown and GnuCash QIF
 
 After all flags are resolved, validate the canonical JSON and create both files:
 
@@ -271,7 +271,7 @@ After all flags are resolved, validate the canonical JSON and create both files:
 gnucash-transaction-create \
   --input <transactions.json> \
   --markdown-output <transactions.md> \
-  --csv-output <transactions.csv> \
+  --qif-output <transactions.qif> \
   --expected-transactions <count>
 ```
 
@@ -282,25 +282,25 @@ creates each output. It:
 - rejects unknown JSON fields and malformed amounts;
 - requires exactly one source split per transaction;
 - requires every transaction to sum exactly to zero;
-- puts the source split last in Markdown and first in CSV;
-- supports configurable currency symbols, decimal separators, CSV delimiters,
-  decimal precision, transaction-ID prefix, and expected transaction count;
-- writes GnuCash's current 18-column transaction-export layout, leaving ignored
-  fields blank and using numeric Amount and Value columns for single-currency
-  transactions;
-- adds import-only grouping keys so adjacent transactions with the same date and
-  description remain separate; these keys are not stored as transaction GUIDs;
+- puts the source split last in Markdown;
+- supports configurable Markdown currency formatting, decimal precision, and
+  expected transaction count;
+- writes one QIF account section per source account, allowing one file to hold
+  transactions from multiple bank or credit-card accounts;
+- writes expense and income splits as QIF categories and balance-sheet splits
+  as bracketed transfers;
+- writes QIF dates as `MM/DD/YYYY` and amounts with a period decimal separator;
 - refuses to overwrite either output unless `--force` is supplied.
 
 Without explicit output paths, it creates `<input-stem>.md` and
-`<input-stem>_gnucash.csv` beside the JSON file.
+`<input-stem>_gnucash.qif` beside the JSON file.
 
 Review the Markdown, apply any corrections to the canonical JSON, then rerun
 the renderer so both generated files stay synchronized. Do not use either
 generated file as the source for the other.
 
-For GnuCash, select **File → Import → Import Transactions from CSV**, choose the
-built-in **GnuCash Export Format** settings, and leave the global Account blank.
-This preset enables multi-split mode, skips the one-line header, and maps the 18
-columns by position. Select date and currency formats matching the file, review
-every account mapping and possible duplicate, then apply the import.
+For GnuCash, select **File → Import → Import QIF** and load the generated file.
+Choose **MM/DD/YYYY** if prompted for its date format. Review the proposed QIF
+account and income/expense category mappings; create or redirect missing
+accounts as needed. Choose USD as the currency, inspect every possible duplicate,
+then apply the import.

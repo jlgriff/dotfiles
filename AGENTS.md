@@ -16,7 +16,7 @@ Personal scripts, notes, and settings for this machine (Ubuntu 24.04, Wayland).
   - **walmart-order-extract** — Extracts order details from saved Walmart order **PDF** invoices (preferred — include per-line quantities) or legacy HTML files. Same JSON output schema as amazon-order-extract. PDF parsing requires `pdftotext` (poppler-utils).
   - **gnucash-account-extract** — Extracts account paths from a GnuCash file (gzip-compressed XML). Outputs JSON grouped by category. Supports filtering by category.
   - **gnucash-transaction-extract** — Extracts the most recent N transactions from a GnuCash file as JSON (date, description, splits with account/amount/memo). Useful as categorization precedent for AI.
-  - **gnucash-transaction-create** — Reads neutral transaction JSON, validates every split and balance, then independently creates a Markdown review file and GnuCash export-format multi-split CSV. Adds import-only grouping keys, refuses accidental overwrites, and supports configurable output paths, delimiters, money formats, and source-split designation through the input data. Contains no machine- or account-specific defaults.
+  - **gnucash-transaction-create** — Reads neutral transaction JSON, validates every split and balance, then independently creates a Markdown review file and multi-account QIF for GnuCash import. Refuses accidental overwrites and supports configurable output paths, Markdown money formats, decimal precision, expected transaction counts, and source-split designation through the input data. Contains no machine- or account-specific defaults.
 
 ## instructions/
 
