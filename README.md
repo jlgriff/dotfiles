@@ -108,6 +108,11 @@ Code and Codex. Agents load a skill two ways: implicitly, by matching its
 `description` against the task, and explicitly — `/name` in Claude Code,
 `$name` in Codex.
 
+A skill is the only surface both agents share. Claude Code slash commands in
+`~/.claude/commands/` do not reach Codex, and Codex custom prompts
+(`~/.codex/prompts/`) are deprecated upstream in favour of skills — so write
+anything that should apply to both as a skill here, not as a command.
+
 - **parse-amazon-invoice-pdfs** — Extracts one or many Amazon Order Details
   PDFs through Poppler before an agent parses items, quantities, prices, and
   totals. Includes a macOS/Linux batch helper, arithmetic checks, privacy
@@ -115,6 +120,9 @@ Code and Codex. Agents load a skill two ways: implicitly, by matching its
 - **build-feature** — Research first, drive the work with tests, implement the
   smallest thing that works, then cull the scaffolding tests that no longer
   earn their place.
+- **caveman-off** — Ends caveman mode and returns the agent to its normal
+  voice. Pairs with the upstream `caveman` skill that
+  `setup_caveman_skill.sh` installs.
 - **code-comments** — A one-line doc on every function and almost nothing
   else; an inline comment is a signal to rename or extract instead.
 - **commit-message** — One sentence, under 25 words, leading past-tense verb,

@@ -33,8 +33,11 @@ Personal scripts, notes, and settings for this machine (Ubuntu 24.04, Wayland).
 
 Each skill is one agent-neutral `SKILL.md`. Install them with `scripts/install_skills.sh` rather than by hand. Frontmatter stays `name` + `description` only; all "when to use" text belongs in `description`, because that is the load trigger for both agents. Never name a host tool in a skill ("read the file", not "use the Read tool") and keep paths relative to the skill directory.
 
+A skill is the only portable surface. Claude Code slash commands in `~/.claude/commands/` have no Codex counterpart worth using — Codex custom prompts (`~/.codex/prompts/`) are deprecated upstream in favour of skills — so anything that should reach both agents belongs here as a skill, not there as a command. Both agents also invoke a skill explicitly: `/name` in Claude Code, `$name` in Codex.
+
 - **parse-amazon-invoice-pdfs** — Fast Amazon Order Details PDF parsing. Uses a bundled Bash helper and Poppler `pdftotext`; supports macOS/Linux batch extraction, quantity and total validation, privacy filtering, and finance-extract-compatible JSON.
 - **build-feature** — Research first, drive the work with tests, implement the smallest thing that works, then cull scaffolding tests that no longer earn their place.
+- **caveman-off** — Ends caveman mode and returns the agent to its normal voice. Paired with the upstream `caveman` skill that `setup_caveman_skill.sh` installs.
 - **code-comments** — A one-line doc on every function and almost nothing else; wanting an inline comment means the code needs renaming or extracting instead.
 - **commit-message** — One sentence, under 25 words, leading past-tense verb, no prefix in front of it.
 - **demo-video** — Routes a demo or screen-recording request to whatever recording skill the target repo already owns.

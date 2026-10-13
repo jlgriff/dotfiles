@@ -51,4 +51,10 @@ These apply always. The matching skill carries the detail.
   first word a past-tense verb and nothing in front of it.
 - **Squashing:** I squash-merge every branch, so intermediate commits collapse into one. Never
   rewrite history or force-push to tidy a branch up.
-- **Never commit, push, or post to GitHub** unless I ask. Draft it and hand it back.
+- **Branch tracking:** never let a new branch track `main` (`git status -sb` showing
+  `<branch>...origin/main`) unless I explicitly allow it. Create branches with
+  `git switch -c <branch> --no-track origin/main`, and track the branch's own remote branch once
+  pushed.
+- **Never commit, push, or post comments to others' GitHub PRs** unless I ask. Draft it and hand it
+  back.
+- **Never write a new memory without asking.**
