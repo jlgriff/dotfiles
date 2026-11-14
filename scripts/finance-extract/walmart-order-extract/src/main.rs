@@ -278,12 +278,15 @@ fn parse_walmart_pdf(raw: &str, layout: &str) -> Option<Order> {
         .unwrap_or_default();
 
     // Items: in raw mode each item is a block of one-or-more consecutive
-    // name lines, a blank line, "Qty N", a blank line, then "$price". Scan
-    // imperatively so header/footer text (which never sits directly above a
-    // "Qty N" line) can't bleed into a product name.
+    // name lines, a blank line, "Qty N", a blank line, then "$price". On a
+    // single-item invoice the footer labels also sit between name and "Qty N".
     let lines: Vec<&str> = raw.lines().map(|l| l.trim_end()).collect();
     let qty_re = Regex::new(r"^Qty\s+(\d+)$").unwrap();
     let price_re = Regex::new(r"^\$([\d,]+\.\d{2})$").unwrap();
+    let footer_label_re =
+        Regex::new(r"^(Subtotal( \(\d+ items?\))?|Savings|Shipping( \(.*\))?|Taxes?|Total)$")
+            .unwrap();
+    let is_gap = |l: &str| l.trim().is_empty() || footer_label_re.is_match(l.trim());
     let mut items = Vec::new();
     for (i, line) in lines.iter().enumerate() {
         let qty = match qty_re.captures(line.trim()) {
@@ -299,11 +302,11 @@ fn parse_walmart_pdf(raw: &str, layout: &str) -> Option<Order> {
             Some(p) => p,
             None => continue,
         };
-        // Name: skip the blank line(s) above, then gather consecutive non-blank
-        // lines (the wrapped product title) and join them top-to-bottom.
+        // Name: skip the blank and footer-label lines above, then gather consecutive
+        // non-blank lines (the wrapped product title) and join them top-to-bottom.
         let mut name_lines: Vec<String> = Vec::new();
         let mut j = i;
-        while j > 0 && lines[j - 1].trim().is_empty() {
+        while j > 0 && is_gap(lines[j - 1]) {
             j -= 1;
         }
         while j > 0 && !lines[j - 1].trim().is_empty() {
@@ -331,8 +334,13 @@ fn parse_walmart_pdf(raw: &str, layout: &str) -> Option<Order> {
     };
     let fmt = |v: Option<f64>| v.map(|n| format!("${n:.2}")).unwrap_or_default();
 
-    let subtotal = fmt(money(r"(?m)^\s*Subtotal\s+\$([\d,]+\.\d{2})"));
-    let tax = fmt(money(r"(?m)^\s*Tax\s+\$([\d,]+\.\d{2})"));
+    let subtotal = fmt(money(
+        r"(?m)^\s*Subtotal(?:\s+\(\d+ items?\))?\s+\$([\d,]+\.\d{2})",
+    ));
+    let shipping = fmt(money(
+        r"(?m)^\s*Shipping(?:\s+\([^)]*\))?\s+\$([\d,]+\.\d{2})",
+    ));
+    let tax = fmt(money(r"(?m)^\s*Taxes?\s+\$([\d,]+\.\d{2})"));
     let total = fmt(money(r"(?m)^\s*Total\s+\$([\d,]+\.\d{2})"));
     let discount = money(r"(?m)^\s*Savings\s+-?\$([\d,]+\.\d{2})")
         .map(|n| format!("-${n:.2}"))
@@ -343,7 +351,7 @@ fn parse_walmart_pdf(raw: &str, layout: &str) -> Option<Order> {
         date,
         items,
         subtotal,
-        shipping: String::new(),
+        shipping,
         tax,
         total,
         discount,
@@ -526,4 +534,33 @@ fn main() {
         );
     }
     println!("Summary:   {}", output_file.display());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A single-item invoice's raw dump places the footer labels between the title and "Qty 1".
+    #[test]
+    fn single_item_name_skips_footer_labels() {
+        let raw = "Order# 0000000-00000000\n\nExample Widget, Large\nBlue\n\nSubtotal (1 item)\nTaxes\n\nTotal\n\nQty 1\n\n$10.00\n\n$10.00\n$0.80\n\n$10.80\n";
+        let order = parse_walmart_pdf(raw, "").unwrap();
+        assert_eq!(order.items.len(), 1);
+        assert_eq!(order.items[0].name, "Example Widget, Large Blue");
+        assert_eq!(order.items[0].price, "$10.00");
+    }
+
+    /// Footer labels may carry an item count, the plural "Taxes", or a shipping reason.
+    #[test]
+    fn footer_totals_read_label_variants() {
+        let layout = "  Subtotal (2 items)                        $20.00\n  Shipping (below $35 order minimum fee)     $6.99\n  Taxes                                      $1.60\n  Total                                     $28.59\n";
+        let order = parse_walmart_pdf("Order# 0000000-00000000\n", layout).unwrap();
+        let totals = (
+            order.subtotal.as_str(),
+            order.shipping.as_str(),
+            order.tax.as_str(),
+            order.total.as_str(),
+        );
+        assert_eq!(totals, ("$20.00", "$6.99", "$1.60", "$28.59"));
+    }
 }
